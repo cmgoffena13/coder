@@ -1,0 +1,27 @@
+[project]
+name = "coder"
+version = "0.1.0"
+description = "Local Coding Agent"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic-settings>=2.13.1",
+    "structlog>=25.5.0",
+    "thoughtflow>=0.1.2",
+]
+
+[dependency-groups]
+dev = [
+    "prek>=0.3.9",
+    "pytest>=9.0.3",
+    "pytest-xdist>=3.8.0",
+    "ruff>=0.15.11",
+    "ty>=0.0.31",
+]
+
+[tool.pytest.ini_options]
+testpaths = [ "src/tests" ]
+pythonpath = [ "." ]
+
+[tool.ruff]
+lint.select = ["I"]
