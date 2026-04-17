@@ -30,6 +30,7 @@ Local Coding Assistant powered by [Ollama](https://ollama.com) & [Thoughtflow](h
 - Search, List, & Read Files
 - Write & Patch Files
 - Run Shell Commands
+- Maintains Memory & Context
 
 ## Disclaimer
 > This project includes code from [Mini-Coding-Agent](https://github.com/rasbt/mini-coding-agent) licensed under Apache 2.0.
