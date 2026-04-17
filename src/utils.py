@@ -1,6 +1,9 @@
 import sys
 import tomllib
 from pathlib import Path
+from typing import Any
+
+import orjson
 
 
 def get_version() -> str:
@@ -21,3 +24,31 @@ def get_version() -> str:
 
     with open(pyproject_path, "rb") as f:
         return tomllib.load(f)["project"]["version"]
+
+
+def ensure_dir(path: Path) -> Path:
+    """Create a directory if it doesn't exist."""
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def get_coder_config_dir(*parts: str) -> Path:
+    """
+    Base directory for Selene local config/data: ~/.config/coder
+
+    If `parts` are provided, returns ~/.config/coder/<parts...> and creates it.
+    """
+    base = Path.home() / ".config" / "coder"
+    return ensure_dir(base.joinpath(*parts))
+
+
+def read_json(path: Path) -> Any:
+    """Read a JSON file."""
+    with path.open("rb") as f:
+        return orjson.loads(f.read())
+
+
+def write_json(path: Path, obj: Any) -> None:
+    """Write a JSON file."""
+    with path.open("wb") as f:
+        f.write(orjson.dumps(obj))
