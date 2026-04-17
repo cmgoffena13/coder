@@ -13,6 +13,15 @@ from src.internal.tools.write_file import add_write_file_tool
 from src.internal.workspace import WorkspaceContext
 from src.settings import config
 
+TOOL_APPROVAL = {
+    "list_files": "safe",
+    "read_file": "safe",
+    "search": "safe",
+    "run_shell": "approval required",
+    "write_file": "approval required",
+    "patch_file": "approval required",
+}
+
 
 class CoderAgent(AGENT):
     def __init__(
@@ -69,7 +78,8 @@ class CoderAgent(AGENT):
         if self.read_only:
             return False
         if self.approval_policy == "auto":
-            return True
+            if TOOL_APPROVAL.get(name, "approval required") == "safe":
+                return True
         if self.approval_policy == "never":
             return False
         try:
