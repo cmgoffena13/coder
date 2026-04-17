@@ -98,7 +98,8 @@ class WorkspaceContext:
         commits = "\n".join(f"- {line}" for line in self.recent_commits) or "- none"
         docs = (
             "\n".join(
-                f"- {path}\n{snippet}" for path, snippet in self.project_docs.items()
+                f"\n#### {path}\n{snippet}"
+                for path, snippet in self.project_docs.items()
             )
             or "- none"
         )
@@ -113,7 +114,7 @@ class WorkspaceContext:
                 self.status,
                 "- recent_commits:",
                 commits,
-                "- project_docs:",
+                "\n### Project Docs",
                 docs,
             ]
         )
