@@ -124,10 +124,6 @@ class IndexDB:
         self._conn.row_factory = sqlite3.Row
         self._apply_schema()
 
-    @property
-    def db_path(self) -> Path:
-        return self._db_file
-
     def close(self) -> None:
         self._conn.close()
 
