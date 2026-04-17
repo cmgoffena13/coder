@@ -1,0 +1,360 @@
+import hashlib
+import sqlite3
+import time
+from pathlib import Path
+from typing import List, Optional
+
+from src.settings import get_index_storage_dir
+
+_SCHEMA = """
+PRAGMA journal_mode=WAL;
+PRAGMA synchronous=NORMAL;
+
+CREATE TABLE IF NOT EXISTS symbols (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    file TEXT NOT NULL,
+    start_line INTEGER NOT NULL,
+    end_line INTEGER NOT NULL,
+    signature TEXT,
+    language TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS calls (
+    id INTEGER PRIMARY KEY,
+    symbol_name TEXT NOT NULL,
+    caller_file TEXT NOT NULL,
+    line INTEGER NOT NULL,
+    context TEXT,
+    full_name TEXT
+);
+
+CREATE TABLE IF NOT EXISTS imports (
+    id INTEGER PRIMARY KEY,
+    symbol_name TEXT NOT NULL,
+    file TEXT NOT NULL,
+    import_line TEXT
+);
+
+CREATE TABLE IF NOT EXISTS file_meta (
+    file TEXT PRIMARY KEY,
+    content_hash TEXT NOT NULL,
+    last_indexed REAL,
+    language TEXT,
+    line_count INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS git_info (
+    file TEXT PRIMARY KEY,
+    last_modified TEXT,
+    last_commit_hash TEXT
+);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS symbols_fts USING fts5(
+    name,
+    kind,
+    file,
+    signature,
+    content=symbols,
+    content_rowid=id
+);
+
+CREATE TRIGGER IF NOT EXISTS symbols_ai AFTER INSERT ON symbols BEGIN
+    INSERT INTO symbols_fts(rowid, name, kind, file, signature)
+    VALUES (new.id, new.name, new.kind, new.file, new.signature);
+END;
+
+CREATE TRIGGER IF NOT EXISTS symbols_ad AFTER DELETE ON symbols BEGIN
+    INSERT INTO symbols_fts(symbols_fts, rowid, name, kind, file, signature)
+    VALUES ('delete', old.id, old.name, old.kind, old.file, old.signature);
+END;
+
+CREATE TRIGGER IF NOT EXISTS symbols_au AFTER UPDATE ON symbols BEGIN
+    INSERT INTO symbols_fts(symbols_fts, rowid, name, kind, file, signature)
+    VALUES ('delete', old.id, old.name, old.kind, old.file, old.signature);
+    INSERT INTO symbols_fts(rowid, name, kind, file, signature)
+    VALUES (new.id, new.name, new.kind, new.file, new.signature);
+END;
+
+CREATE VIRTUAL TABLE IF NOT EXISTS calls_fts USING fts5(
+    symbol_name,
+    caller_file,
+    context,
+    content=calls,
+    content_rowid=id
+);
+
+CREATE TRIGGER IF NOT EXISTS calls_ai AFTER INSERT ON calls BEGIN
+    INSERT INTO calls_fts(rowid, symbol_name, caller_file, context)
+    VALUES (new.id, new.symbol_name, new.caller_file, new.context);
+END;
+
+CREATE TRIGGER IF NOT EXISTS calls_ad AFTER DELETE ON calls BEGIN
+    INSERT INTO calls_fts(calls_fts, rowid, symbol_name, caller_file, context)
+    VALUES ('delete', old.id, old.symbol_name, old.caller_file, old.context);
+END;
+
+CREATE INDEX IF NOT EXISTS idx_symbols_name ON symbols(name);
+CREATE INDEX IF NOT EXISTS idx_symbols_file ON symbols(file);
+CREATE INDEX IF NOT EXISTS idx_calls_name   ON calls(symbol_name);
+CREATE INDEX IF NOT EXISTS idx_imports_name ON imports(symbol_name);
+
+CREATE TABLE IF NOT EXISTS session_memory (
+    id INTEGER PRIMARY KEY,
+    task_text TEXT NOT NULL,
+    task_embedding BLOB NOT NULL,
+    context_files TEXT NOT NULL,
+    context_symbols TEXT NOT NULL,
+    tokens_used INTEGER,
+    outcome TEXT DEFAULT 'success',
+    confidence REAL DEFAULT 1.0,
+    created_at REAL NOT NULL,
+    session_id TEXT
+);
+"""
+
+
+class IndexDB:
+    def __init__(self, workspace_root: Path):
+        self.path = workspace_root.resolve()
+        key = hashlib.sha256(str(self.path).encode()).hexdigest()[:24]
+        self._db_file = get_index_storage_dir() / f"{key}.sqlite"
+        self._conn = sqlite3.connect(str(self._db_file), check_same_thread=False)
+        self._conn.row_factory = sqlite3.Row
+        self._apply_schema()
+
+    @property
+    def db_path(self) -> Path:
+        return self._db_file
+
+    def close(self) -> None:
+        self._conn.close()
+
+    def _apply_schema(self):
+        self._conn.executescript(_SCHEMA)
+        self._conn.commit()
+
+    def execute(self, sql: str, params: tuple = ()) -> List[sqlite3.Row]:
+        cur = self._conn.execute(sql, params)
+        return cur.fetchall()
+
+    def is_stale(self, filepath: str, content_hash: str) -> bool:
+        rows = self.execute(
+            "SELECT content_hash FROM file_meta WHERE file = ?", (filepath,)
+        )
+        if not rows:
+            return True
+        return rows[0]["content_hash"] != content_hash
+
+    def upsert_file(
+        self,
+        filepath: str,
+        content_hash: str,
+        language: str,
+        line_count: int,
+        symbols,
+        calls,
+        imports,
+    ):
+        with self._conn:
+            # Remove stale data for this file
+            self._conn.execute("DELETE FROM symbols WHERE file = ?", (filepath,))
+            self._conn.execute("DELETE FROM calls WHERE caller_file = ?", (filepath,))
+            self._conn.execute("DELETE FROM imports WHERE file = ?", (filepath,))
+
+            # Insert new symbols
+            self._conn.executemany(
+                "INSERT INTO symbols (name, kind, file, start_line, end_line, signature, language) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                [
+                    (
+                        s.name,
+                        s.kind,
+                        s.file,
+                        s.start_line,
+                        s.end_line,
+                        s.signature,
+                        s.language,
+                    )
+                    for s in symbols
+                ],
+            )
+
+            # Insert call sites
+            self._conn.executemany(
+                "INSERT INTO calls (symbol_name, caller_file, line, context, full_name) "
+                "VALUES (?, ?, ?, ?, ?)",
+                [
+                    (c.symbol_name, c.caller_file, c.line, c.context, c.full_name)
+                    for c in calls
+                ],
+            )
+
+            # Insert imports
+            self._conn.executemany(
+                "INSERT INTO imports (symbol_name, file, import_line) VALUES (?, ?, ?)",
+                [(i.symbol_name, i.file, i.import_line) for i in imports],
+            )
+
+            # Update file metadata
+            self._conn.execute(
+                "INSERT OR REPLACE INTO file_meta (file, content_hash, last_indexed, language, line_count) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (filepath, content_hash, time.time(), language, line_count),
+            )
+
+    def remove_file(self, filepath: str):
+        with self._conn:
+            self._conn.execute("DELETE FROM symbols WHERE file = ?", (filepath,))
+            self._conn.execute("DELETE FROM calls WHERE caller_file = ?", (filepath,))
+            self._conn.execute("DELETE FROM imports WHERE file = ?", (filepath,))
+            self._conn.execute("DELETE FROM file_meta WHERE file = ?", (filepath,))
+            self._conn.execute("DELETE FROM git_info WHERE file = ?", (filepath,))
+
+    def upsert_git_info(self, filepath: str, last_modified: str, last_commit_hash: str):
+        with self._conn:
+            self._conn.execute(
+                "INSERT OR REPLACE INTO git_info (file, last_modified, last_commit_hash) "
+                "VALUES (?, ?, ?)",
+                (filepath, last_modified, last_commit_hash),
+            )
+
+    def search_symbols(self, fts_query: str, limit: int = 15) -> List[sqlite3.Row]:
+        return self.execute(
+            """
+            SELECT s.id, s.name, s.kind, s.file, s.start_line, s.end_line,
+                   s.signature, s.language, bm25(symbols_fts) AS rank
+            FROM symbols_fts
+            JOIN symbols s ON s.id = symbols_fts.rowid
+            WHERE symbols_fts MATCH ?
+            ORDER BY rank
+            LIMIT ?
+            """,
+            (fts_query, limit),
+        )
+
+    def search_calls(self, fts_query: str, limit: int = 15) -> List[sqlite3.Row]:
+        return self.execute(
+            """
+            SELECT c.id, c.symbol_name, c.caller_file, c.line, c.context,
+                   c.full_name, bm25(calls_fts) AS rank
+            FROM calls_fts
+            JOIN calls c ON c.id = calls_fts.rowid
+            WHERE calls_fts MATCH ?
+            ORDER BY rank
+            LIMIT ?
+            """,
+            (fts_query, limit),
+        )
+
+    def get_symbol(self, name: str) -> List[sqlite3.Row]:
+        return self.execute(
+            "SELECT * FROM symbols WHERE name = ? ORDER BY file, start_line", (name,)
+        )
+
+    def get_symbol_ilike(self, name: str) -> List[sqlite3.Row]:
+        return self.execute(
+            "SELECT * FROM symbols WHERE name LIKE ? ORDER BY file, start_line",
+            (f"%{name}%",),
+        )
+
+    def get_callers(self, symbol_name: str) -> List[sqlite3.Row]:
+        return self.execute(
+            "SELECT * FROM calls WHERE symbol_name = ? ORDER BY caller_file, line",
+            (symbol_name,),
+        )
+
+    def get_importers(self, symbol_name: str) -> List[sqlite3.Row]:
+        return self.execute(
+            "SELECT * FROM imports WHERE symbol_name = ? ORDER BY file",
+            (symbol_name,),
+        )
+
+    def get_git_info(self, filepath: str) -> Optional[sqlite3.Row]:
+        rows = self.execute("SELECT * FROM git_info WHERE file = ?", (filepath,))
+        return rows[0] if rows else None
+
+    def stats(self) -> dict:
+        (file_count,) = self._conn.execute("SELECT COUNT(*) FROM file_meta").fetchone()
+        (symbol_count,) = self._conn.execute("SELECT COUNT(*) FROM symbols").fetchone()
+        lang_rows = self._conn.execute(
+            "SELECT language, COUNT(*) as n FROM file_meta GROUP BY language ORDER BY n DESC"
+        ).fetchall()
+        return {
+            "files": file_count,
+            "symbols": symbol_count,
+            "languages": {r["language"]: r["n"] for r in lang_rows},
+        }
+
+    def module_summary(self) -> List[sqlite3.Row]:
+        """Per-directory file and symbol counts for overview."""
+        return self.execute(
+            """
+            SELECT
+                COALESCE(
+                    CASE WHEN instr(s.file, '/') > 0
+                         THEN substr(s.file, 1, instr(s.file, '/') - 1)
+                         ELSE '.'
+                    END, '.'
+                ) AS module,
+                COUNT(DISTINCT s.file) AS file_count,
+                COUNT(*) AS symbol_count
+            FROM symbols s
+            GROUP BY module
+            ORDER BY file_count DESC
+            """
+        )
+
+    def list_files(self) -> List[str]:
+        rows = self.execute("SELECT file FROM file_meta ORDER BY file")
+        return [r["file"] for r in rows]
+
+    def insert_session_memory(
+        self,
+        task_text: str,
+        embedding_bytes: bytes,
+        context_files_json: str,
+        context_symbols_json: str,
+        tokens_used: Optional[int],
+        outcome: str,
+        session_id: Optional[str],
+    ) -> int:
+        with self._conn:
+            cur = self._conn.execute(
+                """INSERT INTO session_memory
+                   (task_text, task_embedding, context_files, context_symbols,
+                    tokens_used, outcome, created_at, session_id)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    task_text,
+                    embedding_bytes,
+                    context_files_json,
+                    context_symbols_json,
+                    tokens_used,
+                    outcome,
+                    time.time(),
+                    session_id,
+                ),
+            )
+        last = cur.lastrowid
+        if last is None:
+            raise RuntimeError("INSERT INTO session_memory did not set lastrowid")
+        return last
+
+    def get_all_session_embeddings(self) -> List[sqlite3.Row]:
+        return self.execute(
+            "SELECT id, task_text, task_embedding, context_files, "
+            "context_symbols, confidence, session_id FROM session_memory"
+        )
+
+    def list_session_memory(self) -> List[sqlite3.Row]:
+        return self.execute(
+            "SELECT id, task_text, context_files, context_symbols, "
+            "tokens_used, outcome, confidence, created_at, session_id "
+            "FROM session_memory ORDER BY created_at DESC"
+        )
+
+    def clear_session_memory(self):
+        with self._conn:
+            self._conn.execute("DELETE FROM session_memory")

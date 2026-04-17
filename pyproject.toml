@@ -8,6 +8,9 @@ dependencies = [
     "orjson>=3.11.8",
     "pydantic-settings>=2.13.1",
     "thoughtflow>=0.1.2",
+    "tree-sitter>=0.25.2",
+    "tree-sitter-language-pack>=1.6.1",
+    "xxhash>=3.6.0",
 ]
 
 [dependency-groups]

@@ -4,6 +4,8 @@ from typing import Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from src.utils import ensure_dir, get_coder_config_dir
+
 
 def _env_file_paths() -> tuple[str, ...]:
     paths: list[str] = []
@@ -14,6 +16,20 @@ def _env_file_paths() -> tuple[str, ...]:
     # NOTE: Global for Production
     paths.append(str(Path.home() / ".config" / "coder" / ".env"))
     return tuple(paths)
+
+
+@lru_cache()
+def get_index_storage_dir() -> Path:
+    """
+    Where SQLite parse indexes live: same dev vs prod split as ``_env_file_paths``.
+
+    Development (this repo's ``pyproject.toml`` next to ``src/``): ``<repo>/.parse_index/``.
+    Otherwise: ``~/.config/coder/parse_index/``.
+    """
+    repo_root = Path(__file__).resolve().parent.parent
+    if (repo_root / "pyproject.toml").is_file():
+        return ensure_dir(repo_root / ".parse_index")
+    return get_coder_config_dir("parse_index")
 
 
 class GlobalConfig(BaseSettings):

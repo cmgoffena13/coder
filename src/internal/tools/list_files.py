@@ -1,41 +1,8 @@
-from functools import lru_cache
-from pathlib import Path
 from typing import Any
 
 from thoughtflow import TOOL
 
-
-@lru_cache()
-def ignored_path_names_from_gitignore(repo_root: Path) -> set[str]:
-    """
-    Return a cached set of *entry names* to ignore, derived from `.gitignore`.
-
-    Note: `.gitignore` supports complex patterns; this helper intentionally only
-    extracts simple basename-style ignores (e.g. `.venv`, `dist`, `__pycache__`).
-    """
-    always_ignore = {".git", ".gitignore"}
-    gitignore_path = repo_root / ".gitignore"
-    if not gitignore_path.is_file():
-        return always_ignore
-
-    ignored: set[str] = set(always_ignore)
-    for raw in gitignore_path.read_text(
-        encoding="utf-8", errors="replace"
-    ).splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#"):
-            continue
-        if line.startswith("!"):
-            continue
-        line = line.removesuffix("/")
-        line = line.lstrip("/")
-        if any(ch in line for ch in ("*", "?", "[", "]")):
-            continue
-        if "/" in line:
-            continue
-        ignored.add(line)
-    return ignored
-
+from src.utils import ignored_path_names_from_gitignore
 
 list_files_parameters: dict[str, Any] = {
     "type": "object",

@@ -136,6 +136,8 @@ celerybeat.pid
 
 # Environments
 .env
+# Local parse index (dev checkout; see settings.get_index_storage_dir)
+.parse_index/
 .envrc
 .venv
 env/
