@@ -20,15 +20,11 @@ def _env_file_paths() -> tuple[str, ...]:
 
 @lru_cache()
 def get_index_storage_dir() -> Path:
-    """
-    Where SQLite parse indexes live: same dev vs prod split as ``_env_file_paths``.
-
-    Development (this repo's ``pyproject.toml`` next to ``src/``): ``<repo>/.parse_index/``.
-    Otherwise: ``~/.config/coder/parse_index/``.
-    """
     repo_root = Path(__file__).resolve().parent.parent
     if (repo_root / "pyproject.toml").is_file():
+        # NOTE: Local for Development
         return ensure_dir(repo_root / ".parse_index")
+    # NOTE: Global for Production
     return get_coder_config_dir("parse_index")
 
 
