@@ -8,7 +8,10 @@ from src.internal.agent import CoderAgent
 from src.internal.memory_utils import (
     delete_all_chat_sessions,
     ensure_session_index_row,
+    format_chat_sessions_list,
     load_latest_chat_session,
+    match_chat_session,
+    match_chat_session_suggestions,
     new_chat_session_path,
     save_chat_session,
 )
@@ -56,6 +59,8 @@ def build_arg_parser():
 HELP_DETAILS = """
 Available Commands:
     /help - Show this help menu
+    /sessions - List saved sessions
+    /load <prefix> - Load a saved session (prefix match)
     /system - Show the system prompt
     /reset - Delete ALL saved sessions and start fresh
     /exit - Exit the program
@@ -77,13 +82,13 @@ def main(argv=None):
     agent = CoderAgent(
         workspace=workspace, approval_policy=args.approval, verbose=args.verbose
     )
-    session_path = new_chat_session_path()
+    session_path = new_chat_session_path(args.cwd)
     memory = MEMORY()
     if args.latest:
         loaded = load_latest_chat_session()
         if loaded is not None:
             session_path, memory = loaded
-    print(build_welcome_message(agent, session_path.name))
+    print(build_welcome_message(agent, session_path.stem))
 
     while True:
         try:
@@ -103,12 +108,38 @@ def main(argv=None):
             print(agent.system_prompt)
             continue
 
+        if user_input == "/sessions":
+            for line in format_chat_sessions_list(limit=50):
+                print(line)
+            continue
+
+        if user_input.startswith("/load"):
+            query = user_input.removeprefix("/load").strip()
+            if not query:
+                print("Usage: /load <prefix>")
+                continue
+            matched = match_chat_session(query)
+            if matched is None:
+                for line in match_chat_session_suggestions(query, limit=10):
+                    print(line)
+                continue
+            path, _notes = matched
+            try:
+                memory = MEMORY.from_json(str(path))
+                session_path = path
+            except Exception as exc:
+                print(f"Failed to load session: {exc}", file=sys.stderr)
+                continue
+            print(f"Loaded session: {session_path.stem}")
+            print(build_welcome_message(agent, session_path.stem))
+            continue
+
         if user_input == "/reset":
             deleted = delete_all_chat_sessions()
-            session_path = new_chat_session_path()
+            session_path = new_chat_session_path(args.cwd)
             memory = MEMORY()
             print(f"Reset: deleted {deleted} saved session(s).")
-            print(build_welcome_message(agent, session_path.name))
+            print(build_welcome_message(agent, session_path.stem))
             continue
 
         try:

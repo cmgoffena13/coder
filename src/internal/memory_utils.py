@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -16,14 +17,25 @@ def get_chat_sessions_index_path() -> Path:
     return get_chat_sessions_dir() / "sessions_index.json"
 
 
-def new_chat_session_filename() -> str:
-    """Create a timestamped JSON filename for a chat session."""
-    return f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
+_SESSION_PREFIX_UNSAFE_RE = re.compile(r"[^A-Za-z0-9._-]+")
 
 
-def new_chat_session_path() -> Path:
+def _sanitize_session_prefix(text: str) -> str:
+    cleaned = _SESSION_PREFIX_UNSAFE_RE.sub("-", str(text))
+    cleaned = cleaned.strip("-._")
+    return cleaned or "cwd"
+
+
+def new_chat_session_filename(cwd: Path) -> str:
+    """Create a timestamped JSON filename for a chat session, prefixed by CWD basename."""
+    prefix = _sanitize_session_prefix(Path(cwd).name or "cwd")
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    return f"{prefix}_{stamp}.json"
+
+
+def new_chat_session_path(cwd: Path) -> Path:
     """Return a new timestamped chat session path."""
-    return get_chat_sessions_dir() / new_chat_session_filename()
+    return get_chat_sessions_dir() / new_chat_session_filename(cwd)
 
 
 def resolve_chat_session_path(filename: str) -> Path:
@@ -138,3 +150,89 @@ def load_latest_chat_session() -> tuple[Path, MEMORY] | None:
         return None
     memory = MEMORY.from_json(str(path))
     return path, memory
+
+
+def format_chat_sessions_list(limit: int = 50) -> list[str]:
+    """Return display lines for `/sessions`."""
+    entries = list_chat_sessions_index()
+    if not entries:
+        return ["(No Saved Sessions)"]
+    lines: list[str] = []
+    for entry in entries[:limit]:
+        filename = str(entry.get("filename", "")).strip()
+        stem = Path(filename).stem
+        first_prompt = str(entry.get("first_prompt", "")).strip()
+        suffix = f" - {first_prompt}" if first_prompt else ""
+        lines.append(f"- {stem}{suffix}")
+    return lines
+
+
+def _choose_session_by_query(
+    query: str, candidates: list[tuple[str, str]]
+) -> tuple[str, str] | None:
+    q = query.lower()
+    exact = [c for c in candidates if c[0].lower() == q]
+    if len(exact) == 1:
+        return exact[0]
+    starts = [c for c in candidates if c[0].lower().startswith(q)]
+    if len(starts) == 1:
+        return starts[0]
+    contains = [c for c in candidates if q in c[0].lower()]
+    if len(contains) == 1:
+        return contains[0]
+    return None
+
+
+def match_chat_session(query: str) -> tuple[Path, list[str]] | None:
+    """
+    Try to match a session file by prefix/substring, git-SHA style.
+
+    Returns:
+        (path, []) on a unique match.
+        None if no match or ambiguous; caller should use `match_chat_session_suggestions`.
+    """
+    query = str(query).strip()
+    if not query:
+        return None
+    entries = list_chat_sessions_index()
+    candidates: list[tuple[str, str]] = []
+    for entry in entries:
+        filename = str(entry.get("filename", "")).strip()
+        if not filename:
+            continue
+        stem = Path(filename).stem
+        candidates.append((stem, filename))
+
+    chosen = _choose_session_by_query(query, candidates)
+    if chosen is None:
+        return None
+    _stem, filename = chosen
+    path = resolve_chat_session_path(filename)
+    if not path.is_file():
+        return None
+    return path, []
+
+
+def match_chat_session_suggestions(query: str, limit: int = 10) -> list[str]:
+    """Return suggestion lines when a `/load` query is ambiguous or not found."""
+    query = str(query).strip()
+    entries = list_chat_sessions_index()
+    candidates: list[tuple[str, str]] = []
+    for entry in entries:
+        filename = str(entry.get("filename", "")).strip()
+        if not filename:
+            continue
+        stem = Path(filename).stem
+        candidates.append((stem, filename))
+
+    q = query.lower()
+    exact = [c for c in candidates if c[0].lower() == q]
+    starts = [c for c in candidates if c[0].lower().startswith(q)]
+    contains = [c for c in candidates if q in c[0].lower()]
+    matches = exact or starts or contains
+    if not matches:
+        return [f"No session matches: {query}"]
+    lines = [f"Ambiguous session prefix: {query}"]
+    for stem, _filename in matches[:limit]:
+        lines.append(f"- {stem}")
+    return lines
