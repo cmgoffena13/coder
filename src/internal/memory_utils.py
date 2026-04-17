@@ -178,6 +178,18 @@ def format_chat_sessions_list(limit: int = 50) -> list[str]:
     return lines
 
 
+def _stem_filename_candidates(entries: list[dict[str, str]]) -> list[tuple[str, str]]:
+    """Build ``(stem, filename)`` pairs from index entries."""
+    candidates: list[tuple[str, str]] = []
+    for entry in entries:
+        filename = str(entry.get("filename", "")).strip()
+        if not filename:
+            continue
+        stem = Path(filename).stem
+        candidates.append((stem, filename))
+    return candidates
+
+
 def _choose_session_by_query(
     query: str, candidates: list[tuple[str, str]]
 ) -> tuple[str, str] | None:
@@ -205,14 +217,7 @@ def match_chat_session(query: str) -> tuple[Path, list[str]] | None:
     query = str(query).strip()
     if not query:
         return None
-    entries = list_chat_sessions_index()
-    candidates: list[tuple[str, str]] = []
-    for entry in entries:
-        filename = str(entry.get("filename", "")).strip()
-        if not filename:
-            continue
-        stem = Path(filename).stem
-        candidates.append((stem, filename))
+    candidates = _stem_filename_candidates(list_chat_sessions_index())
 
     chosen = _choose_session_by_query(query, candidates)
     if chosen is None:
@@ -227,14 +232,7 @@ def match_chat_session(query: str) -> tuple[Path, list[str]] | None:
 def match_chat_session_suggestions(query: str, limit: int = 10) -> list[str]:
     """Return suggestion lines when a `/load` query is ambiguous or not found."""
     query = str(query).strip()
-    entries = list_chat_sessions_index()
-    candidates: list[tuple[str, str]] = []
-    for entry in entries:
-        filename = str(entry.get("filename", "")).strip()
-        if not filename:
-            continue
-        stem = Path(filename).stem
-        candidates.append((stem, filename))
+    candidates = _stem_filename_candidates(list_chat_sessions_index())
 
     q = query.lower()
     exact = [c for c in candidates if c[0].lower() == q]
