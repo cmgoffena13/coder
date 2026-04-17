@@ -22,6 +22,7 @@ compile:
 		--python-flag=no_warnings \
 		--include-package=src \
 		--include-data-dir=src/internal=src/internal \
+		--include-data-files=pyproject.toml=pyproject.toml \
 		--noinclude-data-files=src/tests/* \
 		--output-dir=dist/
 

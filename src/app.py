@@ -7,6 +7,7 @@ from thoughtflow import MEMORY
 
 from src.internal.agent import CoderAgent
 from src.internal.workspace import WorkspaceContext
+from src.utils import get_version
 
 # fmt: off
 LOGO = r"""                                                         
@@ -99,6 +100,16 @@ def build_arg_parser():
         action="store_true",
         help="Verbose mode (print tool results)",
     )
+    parser.add_argument(
+        "--info",
+        action="store_true",
+        help="Show the config directory",
+    )
+    parser.add_argument(
+        "--version",
+        action="store_true",
+        help="Show the version",
+    )
     return parser.parse_args()
 
 
@@ -112,6 +123,15 @@ Available Commands:
 
 def main(argv=None):
     args = build_arg_parser()
+    if args.info:
+        cli_path = Path(sys.argv[0]).resolve()
+        print(f"CLI Path: {cli_path}")
+        print(f"Config Directory: {Path.home() / '.config' / 'coder'}")
+        return 0
+    if args.version:
+        print(f"Coder Version: {get_version()}")
+        return 0
+
     workspace = WorkspaceContext.build(args.cwd)
     agent = CoderAgent(
         workspace=workspace, approval_policy=args.approval, verbose=args.verbose
