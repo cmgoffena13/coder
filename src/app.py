@@ -37,9 +37,9 @@ def build_arg_parser():
     )
     parser.add_argument(
         "--approval",
-        choices=("ask", "auto", "never"),
-        default="auto",
-        help="Approval policy for risky tools; auto grants the model arbitrary command execution and file writes.",
+        choices=("always", "balanced", "never"),
+        default="balanced",
+        help="Approval policy for risky tools. balanced prompts for approval-required tools.",
     )
     parser.add_argument(
         "-v",
@@ -149,10 +149,10 @@ def main(argv=None):
             try:
                 ensure_session_index_row(session_path, memory)
                 save_chat_session(memory, session_path)
-            except Exception as exc:
-                print(f"Failed to save session: {exc}", file=sys.stderr)
-        except RuntimeError as exc:
-            print(str(exc), file=sys.stderr)
+            except Exception as e:
+                print(f"Failed to save session: {e}", file=sys.stderr)
+        except RuntimeError as e:
+            print(str(e), file=sys.stderr)
         except KeyboardInterrupt:
             print("\nGoodbye!")
             return 0

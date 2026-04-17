@@ -28,7 +28,7 @@ class CoderAgent(AGENT):
         self,
         workspace: WorkspaceContext,
         read_only: bool = False,
-        approval_policy: str = "auto",
+        approval_policy: str = "balanced",
         depth: int = 0,
         max_depth: int = 1,
         max_steps: int = 10,
@@ -77,7 +77,7 @@ class CoderAgent(AGENT):
     def approve(self, name, args):
         if self.read_only:
             return False
-        if self.approval_policy == "auto":
+        if self.approval_policy == "balanced":
             if TOOL_APPROVAL.get(name, "approval required") == "safe":
                 return True
         if self.approval_policy == "never":
