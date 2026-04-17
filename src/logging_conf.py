@@ -5,16 +5,6 @@ import structlog
 from src.settings import config
 
 
-def set_log_level(level: str) -> None:
-    """Update the logging level dynamically after setup_logging has been called."""
-
-    src_logger = logging.getLogger("src")
-    src_logger.setLevel(level)
-
-    for handler in src_logger.handlers:
-        handler.setLevel(level)
-
-
 def setup_logging() -> None:
     """Setup the logging configuration."""
     level: int = getattr(logging, config.SELENE_LOG_LEVEL)
