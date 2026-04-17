@@ -26,5 +26,10 @@ Local Coding Assistant powered by [Ollama](https://ollama.com) & [Thoughtflow](h
 - `CODER_LOG_LEVEL` (Optional) Default: `ERROR`
 - `CODER_OLLAMA_HOST` (Optional) Default: `http://localhost:11434`
 
+## Capabilities
+- Search, List, & Read Files
+- Write & Patch Files
+- Run Shell Commands
+
 ## Disclaimer
 > This project includes code from [Mini-Coding-Agent](https://github.com/rasbt/mini-coding-agent) licensed under Apache 2.0.
