@@ -1,0 +1,2 @@
+# coder
+Local Coding Assistant
