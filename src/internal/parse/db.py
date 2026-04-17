@@ -2,6 +2,7 @@ import hashlib
 import sqlite3
 import time
 from pathlib import Path
+from sqlite3 import Row
 from typing import List, Optional
 
 from src.settings import get_index_storage_dir
@@ -121,7 +122,7 @@ class IndexDB:
         key = hashlib.sha256(str(self.path).encode()).hexdigest()[:24]
         self._db_file = get_index_storage_dir() / f"{key}.sqlite"
         self._conn = sqlite3.connect(str(self._db_file), check_same_thread=False)
-        self._conn.row_factory = sqlite3.Row
+        self._conn.row_factory = Row
         self._apply_schema()
 
     def close(self) -> None:
@@ -131,7 +132,7 @@ class IndexDB:
         self._conn.executescript(_SCHEMA)
         self._conn.commit()
 
-    def execute(self, sql: str, params: tuple = ()) -> List[sqlite3.Row]:
+    def execute(self, sql: str, params: tuple = ()) -> List[Row]:
         cur = self._conn.execute(sql, params)
         return cur.fetchall()
 
@@ -216,7 +217,7 @@ class IndexDB:
                 (filepath, last_modified, last_commit_hash),
             )
 
-    def search_symbols(self, fts_query: str, limit: int = 15) -> List[sqlite3.Row]:
+    def search_symbols(self, fts_query: str, limit: int = 15) -> List[Row]:
         return self.execute(
             """
             SELECT s.id, s.name, s.kind, s.file, s.start_line, s.end_line,
@@ -230,7 +231,7 @@ class IndexDB:
             (fts_query, limit),
         )
 
-    def search_calls(self, fts_query: str, limit: int = 15) -> List[sqlite3.Row]:
+    def search_calls(self, fts_query: str, limit: int = 15) -> List[Row]:
         return self.execute(
             """
             SELECT c.id, c.symbol_name, c.caller_file, c.line, c.context,
@@ -244,30 +245,30 @@ class IndexDB:
             (fts_query, limit),
         )
 
-    def get_symbol(self, name: str) -> List[sqlite3.Row]:
+    def get_symbol(self, name: str) -> List[Row]:
         return self.execute(
             "SELECT * FROM symbols WHERE name = ? ORDER BY file, start_line", (name,)
         )
 
-    def get_symbol_ilike(self, name: str) -> List[sqlite3.Row]:
+    def get_symbol_ilike(self, name: str) -> List[Row]:
         return self.execute(
             "SELECT * FROM symbols WHERE name LIKE ? ORDER BY file, start_line",
             (f"%{name}%",),
         )
 
-    def get_callers(self, symbol_name: str) -> List[sqlite3.Row]:
+    def get_callers(self, symbol_name: str) -> List[Row]:
         return self.execute(
             "SELECT * FROM calls WHERE symbol_name = ? ORDER BY caller_file, line",
             (symbol_name,),
         )
 
-    def get_importers(self, symbol_name: str) -> List[sqlite3.Row]:
+    def get_importers(self, symbol_name: str) -> List[Row]:
         return self.execute(
             "SELECT * FROM imports WHERE symbol_name = ? ORDER BY file",
             (symbol_name,),
         )
 
-    def get_git_info(self, filepath: str) -> Optional[sqlite3.Row]:
+    def get_git_info(self, filepath: str) -> Optional[Row]:
         rows = self.execute("SELECT * FROM git_info WHERE file = ?", (filepath,))
         return rows[0] if rows else None
 
@@ -283,7 +284,7 @@ class IndexDB:
             "languages": {r["language"]: r["n"] for r in lang_rows},
         }
 
-    def module_summary(self) -> List[sqlite3.Row]:
+    def module_summary(self) -> List[Row]:
         """Per-directory file and symbol counts for overview."""
         return self.execute(
             """
@@ -338,13 +339,13 @@ class IndexDB:
             raise RuntimeError("INSERT INTO session_memory did not set lastrowid")
         return last
 
-    def get_all_session_embeddings(self) -> List[sqlite3.Row]:
+    def get_all_session_embeddings(self) -> List[Row]:
         return self.execute(
             "SELECT id, task_text, task_embedding, context_files, "
             "context_symbols, confidence, session_id FROM session_memory"
         )
 
-    def list_session_memory(self) -> List[sqlite3.Row]:
+    def list_session_memory(self) -> List[Row]:
         return self.execute(
             "SELECT id, task_text, context_files, context_symbols, "
             "tokens_used, outcome, confidence, created_at, session_id "
