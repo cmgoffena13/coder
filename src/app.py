@@ -38,7 +38,7 @@ def _refresh_code_index(
         print(f"Code Index Update Failed: {e}", file=sys.stderr)
 
 
-def main(argv=None):
+def main():
     args = build_arg_parser()
     if args.info:
         cli_path = Path(sys.argv[0]).resolve()
