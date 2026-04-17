@@ -79,7 +79,7 @@ def main(argv=None):
     )
     session_path = new_chat_session_path()
     memory = MEMORY()
-    if args.resume_latest:
+    if args.latest:
         loaded = load_latest_chat_session()
         if loaded is not None:
             session_path, memory = loaded
