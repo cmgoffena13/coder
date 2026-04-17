@@ -30,7 +30,6 @@ class JavaScriptAdapter(LanguageAdapter):
     def _get_parser(self):
         from tree_sitter_language_pack import get_parser
 
-        ext_map = {".ts": "typescript", ".tsx": "typescript"}
         # Default to javascript; use typescript grammar for .ts/.tsx
         return get_parser("javascript")
 

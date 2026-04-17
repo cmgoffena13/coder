@@ -90,7 +90,7 @@ def main():
             continue
 
         if user_input.startswith("/load"):
-            loaded = handle_load_command(user_input, agent, args.cwd)
+            loaded = handle_load_command(user_input, agent)
             if loaded is not None:
                 session_path, memory = loaded
             continue

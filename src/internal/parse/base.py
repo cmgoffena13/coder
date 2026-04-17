@@ -50,9 +50,11 @@ class LanguageAdapter:
         """Subclasses may choose grammar by ``filepath``; default uses ``parse``."""
         return self.parse(source)
 
+    # TODO: Might be dead code
     def _node_text(self, node, source_lines: List[str]) -> str:
         return source_lines[node.start_point[0]] if source_lines else ""
 
+    # TODO: Might be dead code
     def _node_lines(self, node, source_lines: List[str]) -> List[str]:
         return source_lines[node.start_point[0] : node.end_point[0] + 1]
 
@@ -84,6 +86,7 @@ class LanguageAdapter:
     ) -> List[CallSite]:
         raise NotImplementedError
 
+    # TODO: Might be dead code
     def is_test_file(self, filepath: str) -> bool:
         return False
 

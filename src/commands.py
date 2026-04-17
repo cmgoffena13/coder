@@ -67,7 +67,7 @@ Available Commands:
 
 
 def handle_load_command(
-    user_input: str, agent: CoderAgent, _cwd: Path
+    user_input: str, agent: CoderAgent
 ) -> Optional[Tuple[Path, MEMORY]]:
     query = user_input.removeprefix("/load").strip()
     if not query:
