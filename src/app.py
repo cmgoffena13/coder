@@ -64,6 +64,7 @@ def build_welcome_message(agent: CoderAgent):
     rows = [center(logo_line) for logo_line in LOGO.splitlines() if logo_line.strip()]
     rows.extend(
         [
+            row(""),
             center("LOCAL CODING AGENT"),
             divider("-"),
             row(""),
