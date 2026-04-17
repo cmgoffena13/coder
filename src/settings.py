@@ -28,6 +28,18 @@ def get_index_storage_dir() -> Path:
     return get_coder_config_dir("parse_index")
 
 
+def delete_all_parse_indexes() -> int:
+    d = get_index_storage_dir()
+    if not d.is_dir():
+        return 0
+    n = 0
+    for p in sorted(d.glob("*.sqlite")):
+        for path in (p, Path(f"{p}-wal"), Path(f"{p}-shm")):
+            path.unlink(missing_ok=True)
+        n += 1
+    return n
+
+
 class GlobalConfig(BaseSettings):
     CODER_OLLAMA_HOST: str = "http://localhost:11434"
     CODER_OLLAMA_MODEL: Optional[str] = None

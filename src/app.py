@@ -18,14 +18,17 @@ from src.internal.memory_utils import (
 )
 from src.internal.parse.parser import index_workspace
 from src.internal.workspace import WorkspaceContext
+from src.settings import delete_all_parse_indexes
 from src.utils import get_version
 from src.welcome import build_welcome_message
 
 
-def _refresh_code_index(workspace: WorkspaceContext, verbose: bool) -> None:
+def _refresh_code_index(
+    workspace: WorkspaceContext, verbose: bool, full_refresh: bool = False
+) -> None:
     try:
-        stats = index_workspace(workspace.root)
-        if verbose:
+        stats = index_workspace(workspace.root, full_refresh=full_refresh)
+        if verbose or full_refresh:
             print(
                 f"[PARSER] Indexed {stats['files_indexed']} file(s), "
                 f"{stats['symbols']} symbols, {stats['elapsed']:.2f}s"
@@ -77,7 +80,8 @@ Available Commands:
     /load <prefix> - Load a saved session (prefix match)
     /delete <name> - Delete a saved session (exact name match)
     /system - Show the system prompt
-    /reset - Delete ALL saved sessions and start fresh
+    /refresh - Full reindex of the workspace (parse all files)
+    /reset - Delete ALL saved sessions, ALL repo indexes, and start fresh
     /exit - Exit the program
 """
 
@@ -124,6 +128,10 @@ def main(argv=None):
             print(agent.system_prompt)
             continue
 
+        if user_input == "/refresh":
+            _refresh_code_index(workspace, args.verbose, full_refresh=True)
+            continue
+
         if user_input == "/sessions":
             for line in format_chat_sessions_list(limit=50):
                 print(line)
@@ -164,9 +172,13 @@ def main(argv=None):
 
         if user_input == "/reset":
             deleted = delete_all_chat_sessions()
+            indexes_removed = delete_all_parse_indexes()
             session_path = new_chat_session_path(args.cwd)
             memory = MEMORY()
-            print(f"Reset: deleted {deleted} saved session(s).")
+            print(
+                f"Reset: deleted {deleted} saved session(s) and "
+                f"{indexes_removed} index database(s)."
+            )
             print(build_welcome_message(agent, session_path.stem))
             continue
 
