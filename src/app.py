@@ -7,6 +7,7 @@ from thoughtflow import MEMORY
 from src.internal.agent import CoderAgent
 from src.internal.memory_utils import (
     delete_all_chat_sessions,
+    delete_chat_session,
     ensure_session_index_row,
     format_chat_sessions_list,
     load_latest_chat_session,
@@ -61,6 +62,7 @@ Available Commands:
     /help - Show this help menu
     /sessions - List saved sessions
     /load <prefix> - Load a saved session (prefix match)
+    /delete <name> - Delete a saved session (exact name match)
     /system - Show the system prompt
     /reset - Delete ALL saved sessions and start fresh
     /exit - Exit the program
@@ -132,6 +134,18 @@ def main(argv=None):
                 continue
             print(f"Loaded session: {session_path.stem}")
             print(build_welcome_message(agent, session_path.stem))
+            continue
+
+        if user_input.startswith("/delete"):
+            name = user_input.removeprefix("/delete").strip()
+            if not name:
+                print("Usage: /delete <name>")
+                continue
+            deleted_path = delete_chat_session(name)
+            if deleted_path is None:
+                print(f"No session named: {name}")
+            else:
+                print(f"Deleted session: {Path(deleted_path.name).stem}")
             continue
 
         if user_input == "/reset":

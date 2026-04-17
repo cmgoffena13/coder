@@ -1,6 +1,7 @@
 import re
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 from thoughtflow import MEMORY
 
@@ -85,9 +86,18 @@ def upsert_chat_session_index(filename: str, first_prompt: str) -> None:
     _write_sessions_index(merged)
 
 
-def delete_chat_session(filename: str) -> None:
-    """Delete a saved chat session file and remove it from index."""
+def delete_chat_session(name: str) -> Optional[Path]:
+    """
+    Delete a saved chat session and remove it from the index.
+
+    Accepts either a stem (no extension) or a full `*.json` filename.
+    Returns the deleted session path on success, or None if not found.
+    """
+    name = str(name).strip()
+    filename = name if name.endswith(".json") else f"{name}.json"
     path = resolve_chat_session_path(filename)
+    if not path.is_file():
+        return None
     try:
         path.unlink(missing_ok=True)
     except Exception:
@@ -97,6 +107,7 @@ def delete_chat_session(filename: str) -> None:
     filtered = [entry for entry in entries if entry["filename"] != filename]
     filtered.sort(key=lambda item: item["filename"], reverse=True)
     _write_sessions_index(filtered)
+    return path
 
 
 def delete_all_chat_sessions() -> int:
