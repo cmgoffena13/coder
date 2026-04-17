@@ -33,3 +33,4 @@ Local Coding Assistant powered by [Ollama](https://ollama.com) & [Thoughtflow](h
 
 ## Disclaimer
 > This project includes code from [Mini-Coding-Agent](https://github.com/rasbt/mini-coding-agent) licensed under Apache 2.0.
+> This project includes code from [CodeDrift](https://github.com/darshil3011/codedrift) licensed under MIT
