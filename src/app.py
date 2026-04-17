@@ -20,6 +20,16 @@ from src.welcome import build_welcome_message
 def build_arg_parser():
     parser = argparse.ArgumentParser(description="Coder")
     parser.add_argument(
+        "--version",
+        action="store_true",
+        help="Show CLI version",
+    )
+    parser.add_argument(
+        "--info",
+        action="store_true",
+        help="Show CLI information",
+    )
+    parser.add_argument(
         "--cwd", type=Path, default=Path.cwd(), help="Current working directory"
     )
     parser.add_argument(
@@ -35,17 +45,8 @@ def build_arg_parser():
         help="Verbose mode (print tool results)",
     )
     parser.add_argument(
-        "--info",
-        action="store_true",
-        help="Show CLI information",
-    )
-    parser.add_argument(
-        "--version",
-        action="store_true",
-        help="Show CLI version",
-    )
-    parser.add_argument(
-        "--resume-latest",
+        "-l",
+        "--latest",
         action="store_true",
         help="Resume the most recent saved chat session",
     )
