@@ -103,12 +103,12 @@ def build_arg_parser():
     parser.add_argument(
         "--info",
         action="store_true",
-        help="Show the config directory",
+        help="Show CLI information",
     )
     parser.add_argument(
         "--version",
         action="store_true",
-        help="Show the version",
+        help="Show CLI version",
     )
     return parser.parse_args()
 
