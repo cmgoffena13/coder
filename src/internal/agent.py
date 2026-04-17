@@ -31,7 +31,7 @@ class CoderAgent(AGENT):
         approval_policy: str = "auto",
         depth: int = 0,
         max_depth: int = 1,
-        max_steps: int = 6,
+        max_steps: int = 10,
         verbose: bool = False,
     ):
         self.name = "Coder"
