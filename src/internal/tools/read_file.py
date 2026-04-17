@@ -24,27 +24,33 @@ read_file_parameters: dict[str, Any] = {
 }
 
 
-def tool_read_file(context, args):
+def tool_read_file(context, args, verbose: bool = False):
     path = context.path(args["path"])
     if not path.is_file():
-        raise ValueError("path is not a file")
+        if verbose:
+            print(f"[READ_FILE ERROR]\n Path is not a file: {path}")
+        raise ValueError("Path is not a file")
     start = int(args.get("start", 1))
     end = int(args.get("end", 200))
     if start < 1 or end < start:
-        raise ValueError("invalid line range")
+        if verbose:
+            print(f"[READ_FILE ERROR]\n Invalid line range")
+        raise ValueError("Invalid line range")
     lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
     body = "\n".join(
         f"{number:>4}: {line}"
         for number, line in enumerate(lines[start - 1 : end], start=start)
     )
     tool_result = f"# {path.relative_to(context.root)}\n{body}"
+    if verbose:
+        print(f"[READ_FILE RESULT]\n {tool_result}")
     return tool_result
 
 
-def add_read_file_tool(context) -> TOOL:
+def add_read_file_tool(context, verbose: bool = False) -> TOOL:
     return TOOL(
         name="read_file",
         description="Read a UTF-8 file by line range.",
         parameters=read_file_parameters,
-        fn=lambda **kwargs: tool_read_file(context, kwargs),
+        fn=lambda **kwargs: tool_read_file(context, kwargs, verbose),
     )

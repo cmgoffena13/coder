@@ -6,7 +6,7 @@ from thoughtflow import AGENT, LLM, MEMORY, TOOL
 
 from src.internal.tools.list_files import add_list_files_tool
 from src.internal.tools.patch_file import add_patch_file_tool
-from src.internal.tools.read_files import add_read_file_tool
+from src.internal.tools.read_file import add_read_file_tool
 from src.internal.tools.run_shell import add_run_shell_tool
 from src.internal.tools.tool_search import add_search_tool
 from src.internal.tools.write_file import add_write_file_tool
@@ -23,6 +23,7 @@ class CoderAgent(AGENT):
         depth: int = 0,
         max_depth: int = 1,
         max_steps: int = 6,
+        verbose: bool = False,
     ):
         self.name = "Coder"
         self.llm = LLM(f"ollama:{config.CODER_OLLAMA_MODEL}", think=True)
@@ -33,6 +34,7 @@ class CoderAgent(AGENT):
         self.depth = depth
         self.max_depth = max_depth
         self.max_steps = max_steps
+        self.verbose = verbose
         self.system_prompt = self._load_system_prompt(workspace)
         self.tools = self._build_tools()
         super().__init__(
@@ -50,16 +52,17 @@ class CoderAgent(AGENT):
         return text.replace("{workspace_text}", workspace.text())
 
     def _build_tools(self) -> list[TOOL]:
+        v = self.verbose
         tools = [
-            add_list_files_tool(self.workspace),
-            add_read_file_tool(self.workspace),
-            add_search_tool(self.workspace),
-            add_run_shell_tool(self.workspace),
-            add_write_file_tool(self.workspace),
-            add_patch_file_tool(self.workspace),
+            add_list_files_tool(self.workspace, v),
+            add_read_file_tool(self.workspace, v),
+            add_search_tool(self.workspace, v),
+            add_run_shell_tool(self.workspace, v),
+            add_write_file_tool(self.workspace, v),
+            add_patch_file_tool(self.workspace, v),
         ]
         if getattr(self, "depth", 0) < getattr(self, "max_depth", 1):
-            tools.append(add_delegate_tool(self, self.memory))
+            tools.append(add_delegate_tool(self, self.memory, v))
         return tools
 
     def approve(self, name, args):
@@ -101,7 +104,10 @@ delegate_parameters: dict[str, Any] = {
 
 
 def tool_delegate(
-    agent: CoderAgent, args: dict[str, Any], memory: Optional[MEMORY] = None
+    agent: CoderAgent,
+    args: dict[str, Any],
+    memory: Optional[MEMORY] = None,
+    verbose: bool = False,
 ) -> str:
     if getattr(agent, "depth", 0) >= getattr(agent, "max_depth", 1):
         raise ValueError("delegate depth exceeded")
@@ -130,14 +136,19 @@ def tool_delegate(
     answer = child_memory.last_asst_msg(content_only=True)
 
     tool_result = "delegate_result:\n" + answer
-
+    if verbose:
+        print(f"[DELEGATE] {tool_result}")
     return tool_result
 
 
-def add_delegate_tool(agent: CoderAgent, memory: Optional[MEMORY] = None) -> TOOL:
+def add_delegate_tool(
+    agent: CoderAgent, memory: Optional[MEMORY] = None, verbose: bool = False
+) -> TOOL:
     return TOOL(
         name="delegate",
         description="Ask a bounded read-only child agent to investigate.",
         parameters=delegate_parameters,
-        fn=lambda **kwargs: tool_delegate(agent=agent, memory=memory, args=kwargs),
+        fn=lambda **kwargs: tool_delegate(
+            agent=agent, memory=memory, args=kwargs, verbose=verbose
+        ),
     )

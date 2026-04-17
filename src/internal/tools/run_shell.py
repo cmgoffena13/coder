@@ -20,13 +20,17 @@ run_shell_parameters: dict[str, Any] = {
 }
 
 
-def tool_run_shell(context, args):
+def tool_run_shell(context, args, verbose: bool = False):
     command = str(args.get("command", "")).strip()
     if not command:
-        raise ValueError("command must not be empty")
+        if verbose:
+            print(f"[RUN_SHELL ERROR]\n Command must not be empty")
+        raise ValueError("Command must not be empty")
     timeout = int(args.get("timeout", 20))
     if timeout < 1 or timeout > 120:
-        raise ValueError("timeout must be in [1, 120]")
+        if verbose:
+            print(f"[RUN_SHELL ERROR]\n Timeout must be in [1, 120]")
+        raise ValueError("Timeout must be in [1, 120]")
     result = subprocess.run(
         command,
         cwd=context.root,
@@ -44,13 +48,15 @@ def tool_run_shell(context, args):
             result.stderr.strip() or "(empty)",
         ]
     )
+    if verbose:
+        print(f"[RUN_SHELL RESULT]\n {tool_result}")
     return tool_result
 
 
-def add_run_shell_tool(context) -> TOOL:
+def add_run_shell_tool(context, verbose: bool = False) -> TOOL:
     return TOOL(
         name="run_shell",
         description="Run a shell command in the repo root.",
         parameters=run_shell_parameters,
-        fn=lambda **kwargs: tool_run_shell(context, kwargs),
+        fn=lambda **kwargs: tool_run_shell(context, kwargs, verbose),
     )

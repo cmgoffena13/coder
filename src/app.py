@@ -92,6 +92,12 @@ def build_arg_parser():
         default="ask",
         help="Approval policy for risky tools; auto grants the model arbitrary command execution and file writes.",
     )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Verbose mode (print tool results)",
+    )
     return parser.parse_args()
 
 
@@ -106,7 +112,9 @@ Available Commands:
 def main(argv=None):
     args = build_arg_parser()
     workspace = WorkspaceContext.build(args.cwd)
-    agent = CoderAgent(workspace=workspace, approval_policy=args.approval)
+    agent = CoderAgent(
+        workspace=workspace, approval_policy=args.approval, verbose=args.verbose
+    )
     memory = MEMORY()
     print(build_welcome_message(agent))
 
@@ -128,10 +136,10 @@ def main(argv=None):
             print(agent.system_prompt)
             continue
 
-        print()
         try:
             memory.add_msg("user", user_input)
             memory = agent(memory)
+            print("\n")
             print(memory.last_asst_msg(content_only=True))
         except RuntimeError as exc:
             print(str(exc), file=sys.stderr)

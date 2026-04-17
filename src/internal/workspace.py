@@ -30,6 +30,20 @@ class WorkspaceContext:
         self.recent_commits = recent_commits
         self.project_docs = project_docs
 
+    @property
+    def root(self) -> Path:
+        """Absolute repo root; tools use this for cwd and path resolution."""
+        return Path(self.repo_root)
+
+    def path(self, rel: str) -> Path:
+        """Resolve ``rel`` (relative to repo root) to an absolute path under ``root``."""
+        rel = str(rel).strip() or "."
+        base = self.root.resolve()
+        target = (base / rel).resolve()
+        if not target.is_relative_to(base):
+            raise ValueError("path escapes workspace root")
+        return target
+
     @classmethod
     def build(cls, cwd):
         cwd = Path(cwd).resolve()

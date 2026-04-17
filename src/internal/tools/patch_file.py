@@ -22,28 +22,40 @@ patch_file_parameters: dict[str, Any] = {
 }
 
 
-def tool_patch_file(context, args):
+def tool_patch_file(context, args, verbose: bool = False):
     path = context.path(args["path"])
     if not path.is_file():
-        raise ValueError("path is not a file")
+        if verbose:
+            print(f"[PATCH_FILE ERROR]\n Path is not a file: {path}")
+        raise ValueError("Path is not a file")
     old_text = str(args.get("old_text", ""))
     if not old_text:
-        raise ValueError("old_text must not be empty")
+        if verbose:
+            print(f"[PATCH_FILE ERROR]\n Old_text must not be empty")
+        raise ValueError("Old_text must not be empty")
     if "new_text" not in args:
-        raise ValueError("missing new_text")
+        if verbose:
+            print(f"[PATCH_FILE ERROR]\n Missing new_text")
+        raise ValueError("Missing new_text")
     text = path.read_text(encoding="utf-8")
     count = text.count(old_text)
     if count != 1:
-        raise ValueError(f"old_text must occur exactly once, found {count}")
+        if verbose:
+            print(
+                f"[PATCH_FILE ERROR]\n Old_text must occur exactly once, found {count}"
+            )
+        raise ValueError(f"Old_text must occur exactly once, found {count}")
     path.write_text(text.replace(old_text, str(args["new_text"]), 1), encoding="utf-8")
     tool_result = f"patched {path.relative_to(context.root)}"
+    if verbose:
+        print(f"[PATCH_FILE RESULT]\n {tool_result}")
     return tool_result
 
 
-def add_patch_file_tool(context) -> TOOL:
+def add_patch_file_tool(context, verbose: bool = False) -> TOOL:
     return TOOL(
         name="patch_file",
         description="Replace one exact text block in a file.",
         parameters=patch_file_parameters,
-        fn=lambda **kwargs: tool_patch_file(context, kwargs),
+        fn=lambda **kwargs: tool_patch_file(context, kwargs, verbose),
     )

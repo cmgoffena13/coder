@@ -27,10 +27,12 @@ list_files_parameters: dict[str, Any] = {
 }
 
 
-def tool_list_files(context, args):
+def tool_list_files(context, args, verbose: bool = False):
     path = context.path(args.get("path", "."))
     if not path.is_dir():
-        raise ValueError("path is not a directory")
+        if verbose:
+            print(f"[LIST_FILES ERROR]\n Path is not a directory: {path}")
+        raise ValueError("Path is not a directory")
     entries = [
         item
         for item in sorted(
@@ -43,13 +45,15 @@ def tool_list_files(context, args):
         kind = "[D]" if entry.is_dir() else "[F]"
         lines.append(f"{kind} {entry.relative_to(context.root)}")
     tool_result = "\n".join(lines) or "(empty)"
+    if verbose:
+        print(f"[LIST_FILES RESULT]\n {tool_result}")
     return tool_result
 
 
-def add_list_files_tool(context) -> TOOL:
+def add_list_files_tool(context, verbose: bool = False) -> TOOL:
     return TOOL(
         name="list_files",
         description="List files in the workspace.",
         parameters=list_files_parameters,
-        fn=lambda **kwargs: tool_list_files(context, kwargs),
+        fn=lambda **kwargs: tool_list_files(context, kwargs, verbose),
     )
