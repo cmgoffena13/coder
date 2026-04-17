@@ -1,10 +1,8 @@
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
 
 def _env_file_paths() -> tuple[str, ...]:
@@ -19,7 +17,6 @@ def _env_file_paths() -> tuple[str, ...]:
 
 
 class GlobalConfig(BaseSettings):
-    CODER_LOG_LEVEL: LogLevel = "ERROR"
     CODER_OLLAMA_HOST: str = "http://localhost:11434"
     CODER_OLLAMA_MODEL: Optional[str] = None
 

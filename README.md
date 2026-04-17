@@ -23,7 +23,6 @@ Local Coding Assistant powered by [Ollama](https://ollama.com) & [Thoughtflow](h
 
 ## .env Variables
 - `CODER_OLLAMA_MODEL` (Required) Ex. `gemma4:e2b`
-- `CODER_LOG_LEVEL` (Optional) Default: `ERROR`
 - `CODER_OLLAMA_HOST` (Optional) Default: `http://localhost:11434`
 
 ## Capabilities
