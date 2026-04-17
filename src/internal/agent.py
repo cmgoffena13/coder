@@ -28,7 +28,7 @@ class CoderAgent(AGENT):
         self,
         workspace: WorkspaceContext,
         read_only: bool = False,
-        approval_policy: str = "ask",
+        approval_policy: str = "auto",
         depth: int = 0,
         max_depth: int = 1,
         max_steps: int = 6,
