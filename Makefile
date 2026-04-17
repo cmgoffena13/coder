@@ -12,7 +12,7 @@ install:
 	uv sync --all-extras
 	uv run -- prek install
 
-upgrade:
+update:
 	uv sync --upgrade --all-extras
 
 compile:
@@ -25,6 +25,3 @@ compile:
 		--include-data-files=pyproject.toml=pyproject.toml \
 		--noinclude-data-files=src/tests/* \
 		--output-dir=dist/
-
-compile-zip: compile
-	cd dist && rm -f coder-dist.zip && zip -r coder-dist.zip coder.dist
