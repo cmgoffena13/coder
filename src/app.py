@@ -103,10 +103,11 @@ def main(argv=None):
             session_path, memory = handle_reset_command(args.cwd, agent)
             continue
 
+        # NOTE: Agent Loop
         try:
             memory.add_msg("user", user_input)
             memory = agent(memory)
-            print(memory.last_asst_msg(content_only=True))
+            print(memory.last_asst_msg(content_only=True).lstrip())
             _refresh_code_index(workspace, args.verbose)
             try:
                 ensure_session_index_row(session_path, memory)
