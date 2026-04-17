@@ -28,7 +28,7 @@ def _refresh_code_index(
     workspace: WorkspaceContext, verbose: bool, full_refresh: bool = False
 ) -> None:
     try:
-        stats = index_workspace(workspace.root, full_refresh=full_refresh)
+        stats = index_workspace(workspace, full_refresh=full_refresh)
         if verbose or full_refresh:
             print(
                 f"[PARSER] Indexed {stats['files_indexed']} file(s), "

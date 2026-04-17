@@ -21,6 +21,7 @@ class WorkspaceContext:
         status,
         recent_commits,
         project_docs,
+        is_git_repo: bool,
     ):
         self.cwd = cwd
         self.repo_root = repo_root
@@ -29,6 +30,23 @@ class WorkspaceContext:
         self.status = status
         self.recent_commits = recent_commits
         self.project_docs = project_docs
+        self.is_git_repo = is_git_repo
+
+    @staticmethod
+    def is_git_work_tree(path: Path | str) -> bool:
+        """True if ``path`` is inside a git work tree (``git rev-parse --git-dir`` succeeds)."""
+        p = Path(path)
+        try:
+            r = subprocess.run(
+                ["git", "rev-parse", "--git-dir"],
+                cwd=p,
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            return r.returncode == 0 and bool(r.stdout.strip())
+        except Exception:
+            return False
 
     @property
     def root(self) -> Path:
@@ -47,6 +65,12 @@ class WorkspaceContext:
     @classmethod
     def build(cls, cwd):
         cwd = Path(cwd).resolve()
+        in_git = cls.is_git_work_tree(cwd)
+        if not in_git:
+            print(
+                "[WARNING] Current working directory is not a git repository; "
+                "git metadata during indexing and some workspace info may be unavailable."
+            )
 
         def git(args, fallback=""):
             try:
@@ -92,6 +116,7 @@ class WorkspaceContext:
                 line for line in git(["log", "--oneline", "-5"]).splitlines() if line
             ],
             project_docs=docs,
+            is_git_repo=in_git,
         )
 
     def text(self):

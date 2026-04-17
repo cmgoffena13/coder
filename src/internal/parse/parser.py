@@ -8,6 +8,7 @@ import xxhash
 
 from src.internal.parse.db import IndexDB
 from src.internal.parse.languages.factory import AdapterFactory
+from src.internal.workspace import WorkspaceContext
 from src.utils import ignored_path_names_from_gitignore
 
 
@@ -37,22 +38,20 @@ def get_last_commit(filepath: str, project_dir: str) -> tuple[str, str]:
     return parts[0], parts[1] if len(parts) > 1 else ""
 
 
-def is_git_repo(project_dir: str) -> bool:
-    out = _run(["git", "rev-parse", "--git-dir"], cwd=project_dir)
-    return bool(out)
-
-
 def parse_project(
-    directory: Path, db: IndexDB, full_refresh: bool = False
+    directory: Path,
+    db: IndexDB,
+    full_refresh: bool = False,
+    git_metadata: bool = True,
 ) -> dict[str, Union[int, float]]:
+    start = time.time()
+
     proj_root = directory.resolve()
     ignore_dirs = ignored_path_names_from_gitignore(proj_root)
-    git = is_git_repo(str(proj_root))
 
     files_indexed = 0
     files_skipped = 0
     total_symbols = 0
-    start = time.time()
 
     for dirpath, dirnames, filenames in os.walk(proj_root):
         dirnames[:] = [
@@ -104,7 +103,7 @@ def parse_project(
                 calls=calls,
                 imports=imports,
             )
-            if git:
+            if git_metadata:
                 commit_hash, last_modified = get_last_commit(rel_path, str(proj_root))
                 if commit_hash:
                     db.upsert_git_info(rel_path, last_modified, commit_hash)
@@ -116,8 +115,7 @@ def parse_project(
         if not (proj_root / indexed_file).exists():
             db.remove_file(indexed_file)
 
-    end = time.time()
-    elapsed = end - start
+    elapsed = time.time() - start
     return {
         "files_indexed": files_indexed,
         "files_skipped": files_skipped,
@@ -127,10 +125,15 @@ def parse_project(
 
 
 def index_workspace(
-    workspace_root: Path, full_refresh: bool = False
+    workspace: WorkspaceContext, full_refresh: bool = False
 ) -> dict[str, Union[int, float]]:
-    db = IndexDB(workspace_root)
+    db = IndexDB(workspace.root)
     try:
-        return parse_project(workspace_root, db, full_refresh=full_refresh)
+        return parse_project(
+            workspace.root,
+            db,
+            full_refresh=full_refresh,
+            git_metadata=workspace.is_git_repo,
+        )
     finally:
         db.close()
