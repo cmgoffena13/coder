@@ -74,7 +74,7 @@ class CoderAgent(AGENT):
             return False
         try:
             answer = input(
-                f"Approve: {name} {json.dumps(args, ensure_ascii=True)}? [y/N] "
+                f"\nApprove: {name} {json.dumps(args, ensure_ascii=True)}? [y/N] "
             )
         except EOFError:
             return False

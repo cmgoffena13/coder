@@ -6,6 +6,13 @@ from pathlib import Path
 from thoughtflow import MEMORY
 
 from src.internal.agent import CoderAgent
+from src.internal.memory_utils import (
+    delete_all_chat_sessions,
+    ensure_session_index_row,
+    load_latest_chat_session,
+    new_chat_session_path,
+    save_chat_session,
+)
 from src.internal.workspace import WorkspaceContext
 from src.utils import get_version
 
@@ -32,7 +39,7 @@ def middle(text, limit):
     return text[:left] + "..." + text[-right:]
 
 
-def build_welcome_message(agent: CoderAgent):
+def build_welcome_message(agent: CoderAgent, session_name: str):
     width = max(68, min(shutil.get_terminal_size((80, 20)).columns, 84))
     inner = width - 4
     gap = 3
@@ -76,7 +83,7 @@ def build_welcome_message(agent: CoderAgent):
                 "BRANCH",
                 agent.workspace.branch,
             ),
-            pair("APPROVAL", agent.approval_policy, "SESSION", "none"),
+            pair("APPROVAL", agent.approval_policy, "SESSION", session_name),
             row(""),
         ]
     )
@@ -110,12 +117,18 @@ def build_arg_parser():
         action="store_true",
         help="Show CLI version",
     )
+    parser.add_argument(
+        "--resume-latest",
+        action="store_true",
+        help="Resume the most recent saved chat session",
+    )
     return parser.parse_args()
 
 
 HELP_DETAILS = """
 Available Commands:
     /help - Show this help menu
+    /reset - Delete ALL saved sessions and start fresh
     /system - Show the system prompt
     /exit - Exit the program
 """
@@ -136,8 +149,13 @@ def main(argv=None):
     agent = CoderAgent(
         workspace=workspace, approval_policy=args.approval, verbose=args.verbose
     )
+    session_path = new_chat_session_path()
     memory = MEMORY()
-    print(build_welcome_message(agent))
+    if args.resume_latest:
+        loaded = load_latest_chat_session()
+        if loaded is not None:
+            session_path, memory = loaded
+    print(build_welcome_message(agent, session_path.name))
 
     while True:
         try:
@@ -157,11 +175,23 @@ def main(argv=None):
             print(agent.system_prompt)
             continue
 
+        if user_input == "/reset":
+            deleted = delete_all_chat_sessions()
+            session_path = new_chat_session_path()
+            memory = MEMORY()
+            print(f"Reset: deleted {deleted} saved session(s).")
+            print(build_welcome_message(agent, session_path.name))
+            continue
+
         try:
             memory.add_msg("user", user_input)
             memory = agent(memory)
-            print("\n")
             print(memory.last_asst_msg(content_only=True))
+            try:
+                ensure_session_index_row(session_path, memory)
+                save_chat_session(memory, session_path)
+            except Exception as exc:
+                print(f"Failed to save session: {exc}", file=sys.stderr)
         except RuntimeError as exc:
             print(str(exc), file=sys.stderr)
         except KeyboardInterrupt:

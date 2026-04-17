@@ -37,8 +37,18 @@ def tool_search(context, args, verbose: bool = False):
             text=True,
         )
         tool_result = result.stdout.strip() or result.stderr.strip() or "(no matches)"
+    elif shutil.which("grep"):
+        if verbose:
+            print(f"[SEARCH] rg not installed, defaulting to grep")
+        result = subprocess.run(
+            ["grep", "-n", "-m", "200", pattern, str(path)],
+            cwd=context.root,
+            capture_output=True,
+            text=True,
+        )
+        tool_result = result.stdout.strip() or result.stderr.strip() or "(no matches)"
     else:
-        tool_result = "(rg not installed; install ripgrep to use search)"
+        tool_result = "(rg and grep not installed; install ripgrep to use search)"
     if verbose:
         print(f"[SEARCH RESULT]\n {tool_result}")
     return tool_result
