@@ -1,48 +1,21 @@
 import os
-import subprocess
 import time
 from pathlib import Path
 from typing import Union
 
 import xxhash
 
+from src.internal.git_utils import get_last_commit, ignored_path_names_from_gitignore
 from src.internal.parse.db import IndexDB
 from src.internal.parse.languages.factory import AdapterFactory
 from src.internal.workspace import WorkspaceContext
-from src.utils import ignored_path_names_from_gitignore
-
-
-def _content_hash(data: bytes) -> str:
-    return xxhash.xxh128(data).hexdigest()
-
-
-def _run(cmd: list[str], cwd: str) -> str:
-    try:
-        result = subprocess.run(
-            cmd, cwd=cwd, capture_output=True, text=True, timeout=10
-        )
-        return result.stdout.strip()
-    except Exception:
-        return ""
-
-
-def get_last_commit(filepath: str, project_dir: str) -> tuple[str, str]:
-    """Return (commit_hash, author_date) for the last commit touching filepath."""
-    out = _run(
-        ["git", "log", "-1", "--format=%H %ai", "--", filepath],
-        cwd=project_dir,
-    )
-    if not out:
-        return "", ""
-    parts = out.split(" ", 1)
-    return parts[0], parts[1] if len(parts) > 1 else ""
 
 
 def parse_project(
     directory: Path,
     db: IndexDB,
+    git_metadata: bool,
     full_refresh: bool = False,
-    git_metadata: bool = True,
 ) -> dict[str, Union[int, float]]:
     start = time.time()
 
@@ -77,7 +50,7 @@ def parse_project(
                 files_skipped += 1
                 continue
 
-            content_hash = _content_hash(source)
+            content_hash = xxhash.xxh128(source).hexdigest()
 
             if not full_refresh and not db.is_stale(rel_path, content_hash):
                 files_skipped += 1
@@ -104,7 +77,7 @@ def parse_project(
                 imports=imports,
             )
             if git_metadata:
-                commit_hash, last_modified = get_last_commit(rel_path, str(proj_root))
+                commit_hash, last_modified = get_last_commit(rel_path, proj_root)
                 if commit_hash:
                     db.upsert_git_info(rel_path, last_modified, commit_hash)
 

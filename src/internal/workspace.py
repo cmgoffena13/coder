@@ -1,6 +1,6 @@
-import subprocess
 from pathlib import Path
 
+from src.internal.git_utils import is_git_work_tree, run_git
 from src.internal.parse.db import IndexDB
 
 DOC_NAMES = {"AGENTS.md", "pyproject.toml", "Makefile"}
@@ -34,22 +34,6 @@ class WorkspaceContext:
         self.project_docs = project_docs
         self.is_git_repo = is_git_repo
 
-    @staticmethod
-    def is_git_work_tree(path: Path | str) -> bool:
-        """True if ``path`` is inside a git work tree (``git rev-parse --git-dir`` succeeds)."""
-        p = Path(path)
-        try:
-            r = subprocess.run(
-                ["git", "rev-parse", "--git-dir"],
-                cwd=p,
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            return r.returncode == 0 and bool(r.stdout.strip())
-        except Exception:
-            return False
-
     @property
     def root(self) -> Path:
         """Absolute repo root; tools use this for cwd and path resolution."""
@@ -61,34 +45,22 @@ class WorkspaceContext:
         base = self.root.resolve()
         target = (base / rel).resolve()
         if not target.is_relative_to(base):
-            raise ValueError("path escapes workspace root")
+            raise ValueError("Path escapes workspace root")
         return target
 
     @classmethod
     def build(cls, cwd):
         cwd = Path(cwd).resolve()
-        in_git = cls.is_git_work_tree(cwd)
+        in_git = is_git_work_tree(cwd)
         if not in_git:
             print(
                 "[WARNING] Current working directory is not a git repository; "
                 "git metadata during indexing and some workspace info may be unavailable."
             )
 
-        def git(args, fallback=""):
-            try:
-                result = subprocess.run(
-                    ["git", *args],
-                    cwd=cwd,
-                    capture_output=True,
-                    text=True,
-                    check=True,
-                    timeout=5,
-                )
-                return result.stdout.strip() or fallback
-            except Exception:
-                return fallback
-
-        repo_root = Path(git(["rev-parse", "--show-toplevel"], str(cwd))).resolve()
+        repo_root = Path(
+            run_git(cwd, ["rev-parse", "--show-toplevel"], fallback=str(cwd))
+        ).resolve()
         docs = {}
         for base in (repo_root, cwd):
             for name in DOC_NAMES:
@@ -105,17 +77,22 @@ class WorkspaceContext:
         return cls(
             cwd=str(cwd),
             repo_root=str(repo_root),
-            branch=git(["branch", "--show-current"], "-") or "-",
+            branch=run_git(cwd, ["branch", "--show-current"], fallback="-") or "-",
             default_branch=(
-                git(
+                run_git(
+                    cwd,
                     ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"],
-                    "origin/main",
+                    fallback="origin/main",
                 )
                 or "origin/main"
             ).removeprefix("origin/"),
-            status=clip(git(["status", "--short"], "clean") or "clean", 1500),
+            status=clip(
+                run_git(cwd, ["status", "--short"], fallback="clean") or "clean", 1500
+            ),
             recent_commits=[
-                line for line in git(["log", "--oneline", "-5"]).splitlines() if line
+                line
+                for line in run_git(cwd, ["log", "--oneline", "-5"]).splitlines()
+                if line
             ],
             project_docs=docs,
             is_git_repo=in_git,

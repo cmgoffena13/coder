@@ -2,7 +2,7 @@ from typing import Any
 
 from thoughtflow import TOOL
 
-from src.utils import ignored_path_names_from_gitignore
+from src.internal.git_utils import ignored_path_names_from_gitignore
 
 list_files_parameters: dict[str, Any] = {
     "type": "object",
