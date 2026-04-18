@@ -4,7 +4,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from sqlite3 import Row
-from typing import Any, List, Optional, Sequence
+from typing import Any, List, Optional
 
 from src.settings import get_index_storage_dir
 
@@ -230,7 +230,7 @@ class IndexDB:
                 imports,
             )
 
-    def apply_index_batch(self, items: Sequence[IndexBatchItem]) -> None:
+    def apply_index_batch(self, items: list[IndexBatchItem]) -> None:
         """Commit many files in one transaction (per-file delete+insert semantics preserved)."""
         with self._conn:
             for item in items:
@@ -263,7 +263,7 @@ class IndexDB:
         with self._conn:
             self._remove_file_unlocked(filepath)
 
-    def remove_files_batch(self, paths: Sequence[Path]) -> None:
+    def remove_files_batch(self, paths: list[Path]) -> None:
         """Remove index rows for many paths in one transaction."""
         with self._conn:
             for path in paths:
