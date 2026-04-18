@@ -4,6 +4,7 @@ from typing import Any, Optional
 
 from thoughtflow import AGENT, LLM, MEMORY, TOOL
 
+from src.internal.parse.index_read import DiffLedger
 from src.internal.tools import (
     add_index_read_tool,
     add_index_resolve_tool,
@@ -55,6 +56,7 @@ class CoderAgent(AGENT):
         self.max_depth = max_depth
         self.max_steps = max_steps
         self.verbose = verbose
+        self.diff_ledger = DiffLedger()
         self.system_prompt = self._load_system_prompt(workspace)
         self.tools = self._build_tools()
         super().__init__(
@@ -80,7 +82,7 @@ class CoderAgent(AGENT):
             add_run_shell_tool(self.workspace, v),
             add_write_file_tool(self.workspace, v),
             add_patch_file_tool(self.workspace, v),
-            add_index_read_tool(self.workspace, v),
+            add_index_read_tool(self.workspace, self.diff_ledger, v),
             add_index_resolve_tool(self.workspace, v),
             add_index_search_tool(self.workspace, v),
             add_index_task_memory_tool(self.workspace, v),
@@ -108,6 +110,8 @@ class CoderAgent(AGENT):
     # NOTE: store MEMORY in agent for delegate tool
     def __call__(self, memory: MEMORY) -> MEMORY:
         self.memory = memory
+        if getattr(self, "depth", 0) == 0:
+            self.diff_ledger.next_turn()
         return super().__call__(memory)
 
 
