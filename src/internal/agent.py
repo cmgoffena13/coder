@@ -9,7 +9,6 @@ from src.internal.tools import (
     add_index_read_tool,
     add_index_resolve_tool,
     add_index_search_tool,
-    add_index_task_memory_tool,
     add_list_files_tool,
     add_patch_file_tool,
     add_read_file_tool,
@@ -30,7 +29,6 @@ TOOL_APPROVAL = {
     "index_read": "safe",
     "index_resolve": "safe",
     "index_search": "safe",
-    "index_task_memory": "safe",
     "delegate": "safe",
 }
 
@@ -85,7 +83,6 @@ class CoderAgent(AGENT):
             add_index_read_tool(self.workspace, self.diff_ledger, v),
             add_index_resolve_tool(self.workspace, v),
             add_index_search_tool(self.workspace, v),
-            add_index_task_memory_tool(self.workspace, v),
         ]
         if getattr(self, "depth", 0) < getattr(self, "max_depth", 1):
             tools.append(add_delegate_tool(self, self.memory, v))
