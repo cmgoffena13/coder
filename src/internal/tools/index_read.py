@@ -22,7 +22,7 @@ def tool_index_read(context, args, verbose: bool = False):
     rel = str(args.get("path", "")).strip()
     if not rel:
         if verbose:
-            print(f"[INDEX_READ ERROR]\n Path is not a file.")
+            print(f"[INDEX_READ ERROR]\n Path must not be empty.")
         raise ValueError(f"Path must not be empty")
     path = context.path(rel)
     if not path.is_file():
