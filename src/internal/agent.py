@@ -138,11 +138,19 @@ def tool_delegate(
     memory: Optional[MEMORY] = None,
     verbose: bool = False,
 ) -> str:
+    if verbose:
+        print(
+            f"[DELEGATE INPUT] Task: {args.get('task', '')}; Max Steps: {args.get('max_steps', 3)}"
+        )
     if getattr(agent, "depth", 0) >= getattr(agent, "max_depth", 1):
-        raise ValueError("delegate depth exceeded")
+        if verbose:
+            print(f"[DELEGATE ERROR]\nDelegate depth exceeded")
+        raise ValueError("Delegate depth exceeded")
     task = str(args.get("task", "")).strip()
     if not task:
-        raise ValueError("task must not be empty")
+        if verbose:
+            print(f"[DELEGATE ERROR]\nTask must not be empty")
+        raise ValueError("Task must not be empty")
     max_steps = int(args.get("max_steps", 3))
 
     child = CoderAgent(
