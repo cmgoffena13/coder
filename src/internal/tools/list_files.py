@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from typing import Any
 
@@ -48,24 +49,30 @@ def tool_list_files(workspace, args, verbose: bool = False):
         if len(lines) >= _LIST_FILES_MAX_ENTRIES:
             return
         try:
-            children = sorted(
-                directory.iterdir(),
-                key=lambda p: (p.is_file(), p.name.lower()),
-            )
+            with os.scandir(directory) as it:
+                entries = sorted(
+                    it,
+                    key=lambda e: (
+                        e.is_file(follow_symlinks=False),
+                        e.name.lower(),
+                    ),
+                )
         except OSError:
             return
-        for child in children:
+        for entry in entries:
             if len(lines) >= _LIST_FILES_MAX_ENTRIES:
                 return
-            if child.name in ignore:
+            if entry.name in ignore:
                 continue
             child_depth = dir_depth + 1
             if child_depth > _LIST_FILES_MAX_DEPTH:
                 continue
-            kind = "[D]" if child.is_dir() else "[F]"
+            is_dir = entry.is_dir(follow_symlinks=False)
+            kind = "[D]" if is_dir else "[F]"
+            child = Path(entry)
             rel = child.relative_to(root)
             lines.append(f"{tree_prefix(child_depth)}{kind} {rel}")
-            if child.is_dir() and child_depth < _LIST_FILES_MAX_DEPTH:
+            if is_dir and child_depth < _LIST_FILES_MAX_DEPTH:
                 walk_dir(child, child_depth)
 
     walk_dir(base, 0)
