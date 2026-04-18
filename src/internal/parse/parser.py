@@ -30,7 +30,7 @@ class Parser:
         return self._adapters_by_ext[ext]
 
     def _flush_index_batch(
-        self, db: IndexDB, *, root: Path, git_metadata: bool
+        self, db: IndexDB, root: Path, git_metadata: bool
     ) -> tuple[int, int]:
         """Persist :attr:`_index_batch` and clear it. Returns ``(files_count, symbol_count)``."""
         batch = self._index_batch
@@ -40,12 +40,11 @@ class Parser:
         num_symbols = sum(len(item.symbols) for item in batch)
         if git_metadata:
             paths = list(dict.fromkeys(Path(item.filepath) for item in batch))
-            commits = last_commits_for_paths(
-                root, paths, chunk_size=INDEX_DB_BATCH_SIZE
-            )
+            commits = last_commits_for_paths(root, paths, INDEX_DB_BATCH_SIZE)
             for item in batch:
+                path = Path(item.filepath)
                 item.git_commit_hash, item.git_last_modified = commits.get(
-                    Path(item.filepath), ("", "")
+                    path, ("", "")
                 )
         db.apply_index_batch(batch)
         batch.clear()
@@ -124,14 +123,12 @@ class Parser:
                 )
                 if len(self._index_batch) >= INDEX_DB_BATCH_SIZE:
                     file_count, symbol_count = self._flush_index_batch(
-                        db, root=root, git_metadata=git_metadata
+                        db, root, git_metadata
                     )
                     files_indexed += file_count
                     total_symbols += symbol_count
 
-        file_count, symbol_count = self._flush_index_batch(
-            db, root=root, git_metadata=git_metadata
-        )
+        file_count, symbol_count = self._flush_index_batch(db, root, git_metadata)
         files_indexed += file_count
         total_symbols += symbol_count
 
