@@ -5,16 +5,24 @@ from typing import Optional, Union
 
 import xxhash
 
-from src.internal.git_utils import get_last_commit, ignored_path_names_from_gitignore
+from src.internal.git_utils import (
+    ignored_path_names_from_gitignore,
+    last_commits_for_paths,
+)
 from src.internal.parse.base import LanguageAdapter
-from src.internal.parse.db import IndexDB
+from src.internal.parse.db import IndexBatchItem, IndexDB
 from src.internal.parse.languages.factory import AdapterFactory
 from src.internal.workspace import WorkspaceContext
+
+INDEX_DB_BATCH_SIZE = 64
 
 
 class Parser:
     def __init__(self) -> None:
         self._adapters_by_ext: dict[str, Optional[LanguageAdapter]] = {}
+        self._index_batch: list[IndexBatchItem] = []
+        self._index_git_metadata: bool = False
+        self._index_proj_root: Path = Path()
 
     def _adapter_for(self, filename: str) -> Optional[LanguageAdapter]:
         """Return a language adapter for ``filename`` (cached by extension)."""
@@ -22,6 +30,28 @@ class Parser:
         if ext not in self._adapters_by_ext:
             self._adapters_by_ext[ext] = AdapterFactory.get_adapter(filename)
         return self._adapters_by_ext[ext]
+
+    def _flush_index_batch(self, db: IndexDB) -> tuple[int, int]:
+        """Persist :attr:`_index_batch` and clear it. Returns ``(files_count, symbol_count)``."""
+        b = self._index_batch
+        if not b:
+            return (0, 0)
+        n_files = len(b)
+        n_symbols = sum(len(it.symbols) for it in b)
+        if self._index_git_metadata:
+            paths = list(dict.fromkeys(it.filepath.replace("\\", "/") for it in b))
+            commits = last_commits_for_paths(
+                self._index_proj_root, paths, chunk_size=INDEX_DB_BATCH_SIZE
+            )
+            for it in b:
+                key = it.filepath.replace("\\", "/")
+                h, lm = commits.get(key, ("", ""))
+                if h:
+                    it.git_commit_hash = h
+                    it.git_last_modified = lm
+        db.apply_index_batch(b)
+        b.clear()
+        return (n_files, n_symbols)
 
     def parse_project(
         self,
@@ -33,7 +63,10 @@ class Parser:
         start = time.time()
 
         proj_root = directory.resolve()
+        self._index_proj_root = proj_root
+        self._index_git_metadata = git_metadata
         ignore_dirs = ignored_path_names_from_gitignore(proj_root)
+        self._index_batch.clear()
 
         files_indexed = 0
         files_skipped = 0
@@ -81,26 +114,32 @@ class Parser:
                     files_skipped += 1
                     continue
 
-                db.upsert_file(
-                    filepath=rel_path,
-                    content_hash=content_hash,
-                    language=adapter.language_name,
-                    line_count=len(source_lines),
-                    symbols=symbols,
-                    calls=calls,
-                    imports=imports,
+                self._index_batch.append(
+                    IndexBatchItem(
+                        filepath=rel_path,
+                        content_hash=content_hash,
+                        language=adapter.language_name,
+                        line_count=len(source_lines),
+                        symbols=symbols,
+                        calls=calls,
+                        imports=imports,
+                    )
                 )
-                if git_metadata:
-                    commit_hash, last_modified = get_last_commit(rel_path, proj_root)
-                    if commit_hash:
-                        db.upsert_git_info(rel_path, last_modified, commit_hash)
+                if len(self._index_batch) >= INDEX_DB_BATCH_SIZE:
+                    df, ds = self._flush_index_batch(db)
+                    files_indexed += df
+                    total_symbols += ds
 
-                files_indexed += 1
-                total_symbols += len(symbols)
+        df, ds = self._flush_index_batch(db)
+        files_indexed += df
+        total_symbols += ds
 
-        for indexed_rel in db.list_files():
-            if indexed_rel not in present_rel_paths:
-                db.remove_file(indexed_rel)
+        to_remove = [
+            indexed_rel
+            for indexed_rel in db.list_files()
+            if indexed_rel not in present_rel_paths
+        ]
+        db.remove_files_batch(to_remove)
 
         elapsed = time.time() - start
         return {

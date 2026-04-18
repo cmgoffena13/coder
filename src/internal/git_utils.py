@@ -1,8 +1,12 @@
 import functools
+import re
 import subprocess
 from pathlib import Path
+from typing import Sequence
 
 _GIT_TIMEOUT_S = 5
+
+_COMMIT_LINE = re.compile(r"^([0-9a-f]{40})\t(.*)$")
 
 
 @functools.lru_cache()
@@ -81,11 +85,96 @@ def run_git(cwd: Path, args: list[str], *, fallback: str = "") -> str:
         return fallback
 
 
+def _norm_git_path(filepath: str) -> str:
+    """POSIX-style repo-relative path for comparing with ``git`` output.
+
+    ``git log --name-only`` always uses ``/``. Paths from the indexer are often
+    ``str(path.relative_to(root))``, which uses native Windows separators. The index
+    and SQLite still store paths as strings; this only aligns those strings with
+    what Git prints.
+    """
+    return Path(filepath).as_posix()
+
+
+def _run_git_log_name_only_paths(project_dir: Path, paths: list[str]) -> str:
+    try:
+        result = subprocess.run(
+            [
+                "git",
+                "log",
+                "--no-renames",
+                "--format=%H\t%ai",
+                "--name-only",
+                "--",
+                *paths,
+            ],
+            cwd=project_dir,
+            capture_output=True,
+            text=True,
+            timeout=_GIT_TIMEOUT_S,
+        )
+        if result.returncode != 0:
+            return ""
+        return result.stdout or ""
+    except Exception:
+        return ""
+
+
+def _parse_git_log_last_touch(
+    stdout: str, want: set[str]
+) -> dict[str, tuple[str, str]]:
+    """``want`` is normalized repo-relative paths; log is newest-first."""
+    result: dict[str, tuple[str, str]] = {}
+    cur: tuple[str, str] | None = None
+    for raw in stdout.splitlines():
+        line = raw.rstrip("\r\n")
+        if not line.strip():
+            continue
+        m = _COMMIT_LINE.match(line)
+        if m:
+            cur = (m.group(1), m.group(2))
+            continue
+        if cur is None:
+            continue
+        fn = _norm_git_path(line.strip())
+        if fn in want and fn not in result:
+            result[fn] = cur
+    return result
+
+
+def last_commits_for_paths(
+    project_dir: Path,
+    paths: Sequence[str],
+    *,
+    chunk_size: int,
+) -> dict[str, tuple[str, str]]:
+    """
+    Map repo-relative path (forward slashes) -> ``(commit_hash, author_date)`` for the
+    latest commit touching that path. Paths with no history are omitted.
+
+    Runs one ``git log`` per chunk of at most ``chunk_size`` pathspecs.
+    """
+    if not paths:
+        return {}
+    normalized = list(dict.fromkeys(_norm_git_path(p) for p in paths))
+    out: dict[str, tuple[str, str]] = {}
+    for start in range(0, len(normalized), chunk_size):
+        chunk = normalized[start : start + chunk_size]
+        want = set(chunk)
+        if not want:
+            continue
+        log_out = _run_git_log_name_only_paths(project_dir, chunk)
+        out.update(_parse_git_log_last_touch(log_out, want))
+    return out
+
+
 def get_last_commit(filepath: str, project_dir: Path) -> tuple[str, str]:
     """Return (commit_hash, author_date) for the last commit touching ``filepath``.
 
     ``filepath`` is a repo-relative path string (as stored in the index). ``project_dir``
     is the repository root used as ``git``'s working directory.
+
+    For many paths, prefer :func:`last_commits_for_paths` (one ``git log`` per chunk).
     """
     out = run_git(
         project_dir,

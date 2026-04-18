@@ -2,9 +2,3 @@ Parser Optimizations
 
 parser.py
 - Check size + mtime for `is_stale` check before read bytes and hashing
-- `is_stale` uses single query. Need to refactor for batch processing.
-- `get_last_commit` per file. Need to figure out how to batch.
-
-db.py
-- One transaction per `upsert_file`. Need to refactor for batch processing.
-- Pragmas (`PRAGMA cache_size`, `temp_store`) - defer index maintenance when batch processing
