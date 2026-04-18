@@ -1,2 +1,2 @@
-Parser
-- Double Check sqlite file name, is it correctly tying to workspace?
+List Files
+- Create a table that caches the repo structure from the parser to just query (stops scanning directory everytime)
