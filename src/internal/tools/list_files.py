@@ -1,15 +1,23 @@
+from pathlib import Path
 from typing import Any
 
 from thoughtflow import TOOL
 
 from src.internal.git_utils import ignored_path_names_from_gitignore
 
+_LIST_FILES_MAX_ENTRIES = 200
+_LIST_FILES_MAX_DEPTH = 5
+
 list_files_parameters: dict[str, Any] = {
     "type": "object",
     "properties": {
         "path": {
             "type": "string",
-            "description": "Directory path relative to the workspace root (default: current directory).",
+            "description": (
+                "Directory path relative to the workspace root (default: current directory). "
+                f"Tree listing: indents and └─ show nesting, up to {_LIST_FILES_MAX_DEPTH} levels, "
+                f"{_LIST_FILES_MAX_ENTRIES} lines max."
+            ),
             "default": ".",
         },
     },
@@ -20,22 +28,48 @@ list_files_parameters: dict[str, Any] = {
 def tool_list_files(workspace, args, verbose: bool = False):
     if verbose:
         print(f"[LIST_FILES INPUT] Path: {args.get('path', '.')}")
-    path = workspace.path(args.get("path", "."))
-    if not path.is_dir():
+    base = workspace.path(args.get("path", "."))
+    if not base.is_dir():
         if verbose:
-            print(f"[LIST_FILES ERROR]\n Path is not a directory: {path}")
+            print(f"[LIST_FILES ERROR]\n Path is not a directory: {base}")
         raise ValueError("Path is not a directory")
-    entries = [
-        item
-        for item in sorted(
-            path.iterdir(), key=lambda item: (item.is_file(), item.name.lower())
-        )
-        if item.name not in ignored_path_names_from_gitignore(workspace.root)
-    ]
-    lines = []
-    for entry in entries[:200]:
-        kind = "[D]" if entry.is_dir() else "[F]"
-        lines.append(f"{kind} {entry.relative_to(workspace.root)}")
+
+    root = workspace.root.resolve()
+    base = base.resolve()
+    ignore = ignored_path_names_from_gitignore(workspace.root)
+
+    lines: list[str] = []
+
+    def tree_prefix(depth: int) -> str:
+        """depth 1 = direct child of listing root (one └─); deeper adds two spaces per level."""
+        return ("  " * (depth - 1)) + "└─ " if depth > 0 else ""
+
+    def walk_dir(directory: Path, dir_depth: int) -> None:
+        if len(lines) >= _LIST_FILES_MAX_ENTRIES:
+            return
+        try:
+            children = sorted(
+                directory.iterdir(),
+                key=lambda p: (p.is_file(), p.name.lower()),
+            )
+        except OSError:
+            return
+        for child in children:
+            if len(lines) >= _LIST_FILES_MAX_ENTRIES:
+                return
+            if child.name in ignore:
+                continue
+            child_depth = dir_depth + 1
+            if child_depth > _LIST_FILES_MAX_DEPTH:
+                continue
+            kind = "[D]" if child.is_dir() else "[F]"
+            rel = child.relative_to(root)
+            lines.append(f"{tree_prefix(child_depth)}{kind} {rel}")
+            if child.is_dir() and child_depth < _LIST_FILES_MAX_DEPTH:
+                walk_dir(child, child_depth)
+
+    walk_dir(base, 0)
+
     tool_result = "\n".join(lines) or "(empty)"
     if verbose:
         print(f"[LIST_FILES RESULT]\n {tool_result}")
@@ -45,7 +79,10 @@ def tool_list_files(workspace, args, verbose: bool = False):
 def add_list_files_tool(workspace, verbose: bool = False) -> TOOL:
     return TOOL(
         name="list_files",
-        description="List files in the workspace.",
+        description=(
+            "Tree-list files and directories under a path (indents and └─ for nesting; "
+            "max 5 levels below the path, 200 lines)."
+        ),
         parameters=list_files_parameters,
         fn=lambda **kwargs: tool_list_files(workspace, kwargs, verbose),
     )
