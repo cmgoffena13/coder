@@ -21,18 +21,18 @@ search_parameters: dict[str, Any] = {
 }
 
 
-def tool_search(context, args, verbose: bool = False):
+def tool_search(workspace, args, verbose: bool = False):
     pattern = str(args.get("pattern", "")).strip()
     if not pattern:
         if verbose:
             print(f"[SEARCH ERROR]\n Pattern must not be empty")
         raise ValueError("Pattern must not be empty")
-    path = context.path(args.get("path", "."))
+    path = workspace.path(args.get("path", "."))
 
     if shutil.which("rg"):
         result = subprocess.run(
             ["rg", "-n", "--smart-case", "--max-count", "200", pattern, str(path)],
-            cwd=context.root,
+            cwd=workspace.root,
             capture_output=True,
             text=True,
         )
@@ -42,7 +42,7 @@ def tool_search(context, args, verbose: bool = False):
             print(f"[SEARCH] ripgrep not installed, defaulting to grep")
         result = subprocess.run(
             ["grep", "-n", "-m", "200", pattern, str(path)],
-            cwd=context.root,
+            cwd=workspace.root,
             capture_output=True,
             text=True,
         )
@@ -54,10 +54,10 @@ def tool_search(context, args, verbose: bool = False):
     return tool_result
 
 
-def add_search_tool(context, verbose: bool = False) -> TOOL:
+def add_search_tool(workspace, verbose: bool = False) -> TOOL:
     return TOOL(
         name="search",
         description="Search the workspace with ripgrep or grep as a fallback.",
         parameters=search_parameters,
-        fn=lambda **kwargs: tool_search(context, kwargs, verbose),
+        fn=lambda **kwargs: tool_search(workspace, kwargs, verbose),
     )

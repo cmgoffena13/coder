@@ -28,7 +28,7 @@ def _read_lines(root, rel_file: str, start: int, end: int) -> str:
     return "\n".join(body) if body else "(empty range)"
 
 
-def tool_index_resolve(context, args, verbose: bool = False):
+def tool_index_resolve(workspace, args, verbose: bool = False):
     name = str(args.get("symbol", "")).strip()
     if not name:
         if verbose:
@@ -37,7 +37,7 @@ def tool_index_resolve(context, args, verbose: bool = False):
 
     lines: list[str] = [f"# index_resolve: {name!r}", ""]
 
-    db = IndexDB(context.root)
+    db = IndexDB(workspace.root)
     try:
         rows = db.get_symbol_ilike(name)
         if not rows:
@@ -66,7 +66,7 @@ def tool_index_resolve(context, args, verbose: bool = False):
             if row["signature"]:
                 lines.append(f"Signature: {row['signature']}")
             lines.append("```")
-            lines.append(_read_lines(context.root, rel, sl, el))
+            lines.append(_read_lines(workspace.root, rel, sl, el))
             lines.append("```")
 
             git = db.get_git_info(rel)
@@ -111,7 +111,7 @@ def tool_index_resolve(context, args, verbose: bool = False):
     return tool_result
 
 
-def add_index_resolve_tool(context, verbose: bool = False) -> TOOL:
+def add_index_resolve_tool(workspace, verbose: bool = False) -> TOOL:
     return TOOL(
         name="index_resolve",
         description=(
@@ -121,5 +121,5 @@ def add_index_resolve_tool(context, verbose: bool = False) -> TOOL:
             "Input: exact or partial symbol name from index_search results."
         ),
         parameters=index_resolve_parameters,
-        fn=lambda **kwargs: tool_index_resolve(context, kwargs, verbose),
+        fn=lambda **kwargs: tool_index_resolve(workspace, kwargs, verbose),
     )

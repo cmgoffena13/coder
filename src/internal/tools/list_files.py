@@ -17,8 +17,8 @@ list_files_parameters: dict[str, Any] = {
 }
 
 
-def tool_list_files(context, args, verbose: bool = False):
-    path = context.path(args.get("path", "."))
+def tool_list_files(workspace, args, verbose: bool = False):
+    path = workspace.path(args.get("path", "."))
     if not path.is_dir():
         if verbose:
             print(f"[LIST_FILES ERROR]\n Path is not a directory: {path}")
@@ -28,22 +28,22 @@ def tool_list_files(context, args, verbose: bool = False):
         for item in sorted(
             path.iterdir(), key=lambda item: (item.is_file(), item.name.lower())
         )
-        if item.name not in ignored_path_names_from_gitignore(context.root)
+        if item.name not in ignored_path_names_from_gitignore(workspace.root)
     ]
     lines = []
     for entry in entries[:200]:
         kind = "[D]" if entry.is_dir() else "[F]"
-        lines.append(f"{kind} {entry.relative_to(context.root)}")
+        lines.append(f"{kind} {entry.relative_to(workspace.root)}")
     tool_result = "\n".join(lines) or "(empty)"
     if verbose:
         print(f"[LIST_FILES RESULT]\n {tool_result}")
     return tool_result
 
 
-def add_list_files_tool(context, verbose: bool = False) -> TOOL:
+def add_list_files_tool(workspace, verbose: bool = False) -> TOOL:
     return TOOL(
         name="list_files",
         description="List files in the workspace.",
         parameters=list_files_parameters,
-        fn=lambda **kwargs: tool_list_files(context, kwargs, verbose),
+        fn=lambda **kwargs: tool_list_files(workspace, kwargs, verbose),
     )

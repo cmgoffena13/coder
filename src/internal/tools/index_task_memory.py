@@ -23,7 +23,7 @@ index_task_memory_parameters: dict[str, Any] = {
 }
 
 
-def tool_index_task_memory(context, args, verbose: bool = False):
+def tool_index_task_memory(workspace, args, verbose: bool = False):
     q = str(args.get("query", "")).strip()
     if not q:
         if verbose:
@@ -45,7 +45,7 @@ def tool_index_task_memory(context, args, verbose: bool = False):
 
     lines: list[str] = ["# index_memory", ""]
 
-    db = IndexDB(context.root)
+    db = IndexDB(workspace.root)
     try:
         rows = db.get_all_session_embeddings()
     finally:
@@ -105,7 +105,7 @@ def tool_index_task_memory(context, args, verbose: bool = False):
     return tool_result
 
 
-def add_index_task_memory_tool(context, verbose: bool = False) -> TOOL:
+def add_index_task_memory_tool(workspace, verbose: bool = False) -> TOOL:
     return TOOL(
         name="index_task_memory",
         description=(
@@ -116,5 +116,5 @@ def add_index_task_memory_tool(context, verbose: bool = False) -> TOOL:
             "Input: the user's current question or task description."
         ),
         parameters=index_task_memory_parameters,
-        fn=lambda **kwargs: tool_index_task_memory(context, kwargs, verbose),
+        fn=lambda **kwargs: tool_index_task_memory(workspace, kwargs, verbose),
     )

@@ -20,7 +20,7 @@ run_shell_parameters: dict[str, Any] = {
 }
 
 
-def tool_run_shell(context, args, verbose: bool = False):
+def tool_run_shell(workspace, args, verbose: bool = False):
     command = str(args.get("command", "")).strip()
     if not command:
         if verbose:
@@ -33,7 +33,7 @@ def tool_run_shell(context, args, verbose: bool = False):
         raise ValueError("Timeout must be in [1, 120]")
     result = subprocess.run(
         command,
-        cwd=context.root,
+        cwd=workspace.root,
         shell=True,
         capture_output=True,
         text=True,
@@ -53,10 +53,10 @@ def tool_run_shell(context, args, verbose: bool = False):
     return tool_result
 
 
-def add_run_shell_tool(context, verbose: bool = False) -> TOOL:
+def add_run_shell_tool(workspace, verbose: bool = False) -> TOOL:
     return TOOL(
         name="run_shell",
         description="Run a shell command in the repo root.",
         parameters=run_shell_parameters,
-        fn=lambda **kwargs: tool_run_shell(context, kwargs, verbose),
+        fn=lambda **kwargs: tool_run_shell(workspace, kwargs, verbose),
     )

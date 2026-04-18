@@ -22,8 +22,8 @@ patch_file_parameters: dict[str, Any] = {
 }
 
 
-def tool_patch_file(context, args, verbose: bool = False):
-    path = context.path(args["path"])
+def tool_patch_file(workspace, args, verbose: bool = False):
+    path = workspace.path(args["path"])
     if not path.is_file():
         if verbose:
             print(f"[PATCH_FILE ERROR]\n Path is not a file: {path}")
@@ -46,16 +46,16 @@ def tool_patch_file(context, args, verbose: bool = False):
             )
         raise ValueError(f"Old_text must occur exactly once, found {count}")
     path.write_text(text.replace(old_text, str(args["new_text"]), 1), encoding="utf-8")
-    tool_result = f"patched {path.relative_to(context.root)}"
+    tool_result = f"patched {path.relative_to(workspace.root)}"
     if verbose:
         print(f"[PATCH_FILE RESULT]\n {tool_result}")
     return tool_result
 
 
-def add_patch_file_tool(context, verbose: bool = False) -> TOOL:
+def add_patch_file_tool(workspace, verbose: bool = False) -> TOOL:
     return TOOL(
         name="patch_file",
         description="Replace one exact text block in a file.",
         parameters=patch_file_parameters,
-        fn=lambda **kwargs: tool_patch_file(context, kwargs, verbose),
+        fn=lambda **kwargs: tool_patch_file(workspace, kwargs, verbose),
     )

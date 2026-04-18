@@ -18,20 +18,20 @@ index_read_parameters: dict[str, Any] = {
 }
 
 
-def tool_index_read(context, args, verbose: bool = False):
+def tool_index_read(workspace, args, verbose: bool = False):
     rel = str(args.get("path", "")).strip()
     if not rel:
         if verbose:
             print(f"[INDEX_READ ERROR]\n Path must not be empty.")
         raise ValueError(f"Path must not be empty")
-    path = context.path(rel)
+    path = workspace.path(rel)
     if not path.is_file():
         if verbose:
             print(f"[INDEX_READ ERROR]\n Path is not a file: {path}")
         raise ValueError("Path is not a file")
 
-    root_key = str(context.root.resolve())
-    rel_key = str(path.relative_to(context.root))
+    root_key = str(workspace.root.resolve())
+    rel_key = str(path.relative_to(workspace.root))
     key = (root_key, rel_key)
 
     text = path.read_text(encoding="utf-8", errors="replace")
@@ -64,7 +64,7 @@ def tool_index_read(context, args, verbose: bool = False):
     return tool_result
 
 
-def add_index_read_tool(context, verbose: bool = False) -> TOOL:
+def add_index_read_tool(workspace, verbose: bool = False) -> TOOL:
     return TOOL(
         name="index_read",
         description=(
@@ -73,5 +73,5 @@ def add_index_read_tool(context, verbose: bool = False) -> TOOL:
             "Use INSTEAD of read_file."
         ),
         parameters=index_read_parameters,
-        fn=lambda **kwargs: tool_index_read(context, kwargs, verbose),
+        fn=lambda **kwargs: tool_index_read(workspace, kwargs, verbose),
     )
