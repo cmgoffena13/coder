@@ -32,7 +32,7 @@ def refresh_code_index(
         if verbose or full_refresh:
             print(
                 f"[PARSER] Indexed {stats['files_indexed']} file(s), "
-                f"{stats['symbols']} symbols, {stats['elapsed']:.2f}s"
+                f"{stats['symbols']} symbols, {stats['elapsed'] * 1000:.0f}ms"
             )
     except Exception as e:
         print(f"Code Index Update Failed: {e}", file=sys.stderr)
