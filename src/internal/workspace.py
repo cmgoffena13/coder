@@ -16,13 +16,13 @@ def clip(text, limit=4000):
 class WorkspaceContext:
     def __init__(
         self,
-        cwd,
-        repo_root,
-        branch,
-        default_branch,
-        status,
-        recent_commits,
-        project_docs,
+        cwd: str,
+        repo_root: str,
+        branch: str,
+        default_branch: str,
+        status: str,
+        recent_commits: list[str],
+        project_docs: dict[str, str],
         is_git_repo: bool,
     ):
         self.cwd = cwd
