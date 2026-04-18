@@ -85,7 +85,7 @@ def run_git(cwd: Path, args: list[str], *, fallback: str = "") -> str:
         return fallback
 
 
-def _norm_git_path(filepath: str) -> str:
+def norm_git_repo_path(filepath: str) -> str:
     """POSIX-style repo-relative path for comparing with ``git`` output.
 
     ``git log --name-only`` always uses ``/``. Paths from the indexer are often
@@ -136,7 +136,7 @@ def _parse_git_log_last_touch(
             continue
         if cur is None:
             continue
-        fn = _norm_git_path(line.strip())
+        fn = norm_git_repo_path(line.strip())
         if fn in want and fn not in result:
             result[fn] = cur
     return result
@@ -156,7 +156,7 @@ def last_commits_for_paths(
     """
     if not paths:
         return {}
-    normalized = list(dict.fromkeys(_norm_git_path(p) for p in paths))
+    normalized = list(dict.fromkeys(norm_git_repo_path(p) for p in paths))
     out: dict[str, tuple[str, str]] = {}
     for start in range(0, len(normalized), chunk_size):
         chunk = normalized[start : start + chunk_size]
