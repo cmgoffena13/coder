@@ -107,9 +107,9 @@ class CoderAgent(AGENT):
     # NOTE: store MEMORY in agent for delegate tool
     def __call__(self, memory: MEMORY) -> MEMORY:
         self.memory = memory
-        if getattr(self, "depth", 0) == 0:
-            self.diff_ledger.next_turn()
-        return super().__call__(memory)
+        output_memory = super().__call__(memory)
+        self.diff_ledger.next_turn()
+        return output_memory
 
 
 delegate_parameters: dict[str, Any] = {
