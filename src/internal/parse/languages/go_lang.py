@@ -1,5 +1,5 @@
 import os
-from typing import List
+from typing import List, Tuple
 
 from src.internal.parse.base import CallSite, ImportRef, LanguageAdapter, Symbol
 
@@ -12,90 +12,107 @@ class GoAdapter(LanguageAdapter):
     import_node_types = ("import_declaration",)
     call_node_types = ("call_expression",)
 
-    def extract_functions(
+    def extract_index_data(
         self, tree, source_lines: List[str], filepath: str
-    ) -> List[Symbol]:
-        symbols = []
-        for node in self._walk(tree.root_node, self.function_node_types):
-            name_node = node.child_by_field_name("name")
-            if not name_node:
-                continue
-            kind = "method" if node.type == "method_declaration" else "function"
-            sig = source_lines[node.start_point[0]].rstrip() if source_lines else ""
-            symbols.append(
-                Symbol(
-                    name=name_node.text.decode(),
-                    kind=kind,
-                    file=filepath,
-                    start_line=node.start_point[0] + 1,
-                    end_line=node.end_point[0] + 1,
-                    signature=sig,
-                    language="go",
-                )
-            )
-        return symbols
-
-    def extract_classes(
-        self, tree, source_lines: List[str], filepath: str
-    ) -> List[Symbol]:
-        symbols = []
-        for node in self._walk(tree.root_node, self.class_node_types):
-            # type_declaration → type_spec → name
-            for spec in self._walk(node, ("type_spec",)):
-                name_node = spec.child_by_field_name("name")
-                if not name_node:
-                    continue
-                sig = source_lines[node.start_point[0]].rstrip() if source_lines else ""
-                symbols.append(
-                    Symbol(
-                        name=name_node.text.decode(),
-                        kind="class",
-                        file=filepath,
-                        start_line=node.start_point[0] + 1,
-                        end_line=node.end_point[0] + 1,
-                        signature=sig,
-                        language="go",
+    ) -> Tuple[List[Symbol], List[CallSite], List[ImportRef]]:
+        symbols: List[Symbol] = []
+        calls: List[CallSite] = []
+        imports: List[ImportRef] = []
+        types = frozenset(
+            self.function_node_types
+            + self.class_node_types
+            + self.import_node_types
+            + self.call_node_types
+        )
+        for node in self._walk(tree.root_node, types):
+            t = node.type
+            if t in self.function_node_types:
+                sym = self._symbol_from_function_node(node, source_lines, filepath)
+                if sym is not None:
+                    symbols.append(sym)
+            elif t in self.class_node_types:
+                for spec in self._walk(node, frozenset(("type_spec",))):
+                    sym = self._symbol_from_type_spec(
+                        spec, node, source_lines, filepath
                     )
+                    if sym is not None:
+                        symbols.append(sym)
+            elif t in self.import_node_types:
+                imports.extend(
+                    self._import_refs_from_declaration(node, source_lines, filepath)
                 )
-        return symbols
+            elif t in self.call_node_types:
+                site = self._call_site_from_node(node, source_lines, filepath)
+                if site is not None:
+                    calls.append(site)
+        return symbols, calls, imports
 
-    def extract_imports(
-        self, tree, source_lines: List[str], filepath: str
+    def _symbol_from_function_node(
+        self, node, source_lines: List[str], filepath: str
+    ) -> Symbol | None:
+        name_node = node.child_by_field_name("name")
+        if not name_node:
+            return None
+        kind = "method" if node.type == "method_declaration" else "function"
+        sig = source_lines[node.start_point[0]].rstrip() if source_lines else ""
+        return Symbol(
+            name=name_node.text.decode(),
+            kind=kind,
+            file=filepath,
+            start_line=node.start_point[0] + 1,
+            end_line=node.end_point[0] + 1,
+            signature=sig,
+            language="go",
+        )
+
+    def _symbol_from_type_spec(
+        self, spec, type_decl_node, source_lines: List[str], filepath: str
+    ) -> Symbol | None:
+        name_node = spec.child_by_field_name("name")
+        if not name_node:
+            return None
+        sig = (
+            source_lines[type_decl_node.start_point[0]].rstrip() if source_lines else ""
+        )
+        return Symbol(
+            name=name_node.text.decode(),
+            kind="class",
+            file=filepath,
+            start_line=type_decl_node.start_point[0] + 1,
+            end_line=type_decl_node.end_point[0] + 1,
+            signature=sig,
+            language="go",
+        )
+
+    def _import_refs_from_declaration(
+        self, node, source_lines: List[str], filepath: str
     ) -> List[ImportRef]:
-        refs = []
-        for node in self._walk(tree.root_node, self.import_node_types):
-            line = source_lines[node.start_point[0]].strip() if source_lines else ""
-            for child in self._walk(node, ("import_spec",)):
-                path_node = child.child_by_field_name("path")
-                if path_node:
-                    pkg = path_node.text.decode().strip('"').split("/")[-1]
-                    refs.append(
-                        ImportRef(symbol_name=pkg, file=filepath, import_line=line)
-                    )
+        refs: List[ImportRef] = []
+        line = source_lines[node.start_point[0]].strip() if source_lines else ""
+        for child in self._walk(node, frozenset(("import_spec",))):
+            path_node = child.child_by_field_name("path")
+            if path_node:
+                pkg = path_node.text.decode().strip('"').split("/")[-1]
+                refs.append(ImportRef(symbol_name=pkg, file=filepath, import_line=line))
         return refs
 
-    def extract_calls(
-        self, tree, source_lines: List[str], filepath: str
-    ) -> List[CallSite]:
-        sites = []
-        for node in self._walk(tree.root_node, self.call_node_types):
-            fn_node = node.child_by_field_name("function")
-            if not fn_node:
-                continue
-            full_name = fn_node.text.decode()
-            name = full_name.split(".")[-1]
-            line_idx = node.start_point[0]
-            context = source_lines[line_idx].rstrip() if source_lines else ""
-            sites.append(
-                CallSite(
-                    symbol_name=name,
-                    caller_file=filepath,
-                    line=line_idx + 1,
-                    context=context,
-                    full_name=full_name,
-                )
-            )
-        return sites
+    def _call_site_from_node(
+        self, node, source_lines: List[str], filepath: str
+    ) -> CallSite | None:
+        fn_node = node.child_by_field_name("function")
+        if not fn_node:
+            return None
+        full_name = fn_node.text.decode()
+        name = full_name.split(".")[-1]
+        line_idx = node.start_point[0]
+        context = source_lines[line_idx].rstrip() if source_lines else ""
+        return CallSite(
+            symbol_name=name,
+            caller_file=filepath,
+            line=line_idx + 1,
+            context=context,
+            full_name=full_name,
+        )
 
     def is_test_file(self, filepath: str) -> bool:
         return os.path.basename(filepath).endswith("_test.go")

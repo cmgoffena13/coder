@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, cast
+from typing import List, Tuple, cast
 
 from tree_sitter_language_pack import SupportedLanguage, get_parser
 
@@ -39,9 +39,20 @@ class LanguageAdapter:
     import_node_types: tuple = ()
     call_node_types: tuple = ()
 
+    def __init__(self) -> None:
+        self._cached_parsers: dict[str, object] = {}
+
+    def _parser_for_language(self, lang_id: str):
+        """One tree-sitter parser per grammar id on this adapter instance."""
+        d = self._cached_parsers
+        if lang_id not in d:
+            d[lang_id] = get_parser(cast(SupportedLanguage, lang_id))
+        return d[lang_id]
+
     def _get_parser(self):
-        # Subclasses set ``language_name`` to a supported grammar id.
-        return get_parser(cast(SupportedLanguage, self.language_name))
+        if not self.language_name:
+            raise ValueError("language_name must be set on LanguageAdapter subclass")
+        return self._parser_for_language(self.language_name)
 
     def parse(self, source: bytes):
         return self._get_parser().parse(source)
@@ -50,48 +61,22 @@ class LanguageAdapter:
         """Subclasses may choose grammar by ``filepath``; default uses ``parse``."""
         return self.parse(source)
 
-    # TODO: Might be dead code
-    def _node_text(self, node, source_lines: List[str]) -> str:
-        return source_lines[node.start_point[0]] if source_lines else ""
-
-    # TODO: Might be dead code
-    def _node_lines(self, node, source_lines: List[str]) -> List[str]:
-        return source_lines[node.start_point[0] : node.end_point[0] + 1]
-
-    def extract_symbols(
+    def extract_index_data(
         self, tree, source_lines: List[str], filepath: str
-    ) -> List[Symbol]:
-        symbols: List[Symbol] = []
-        symbols.extend(self.extract_functions(tree, source_lines, filepath))
-        symbols.extend(self.extract_classes(tree, source_lines, filepath))
-        return symbols
+    ) -> Tuple[List[Symbol], List[CallSite], List[ImportRef]]:
+        """
+        Single pass over the parse tree: symbols, call sites, and imports.
 
-    def extract_functions(
-        self, tree, source_lines: List[str], filepath: str
-    ) -> List[Symbol]:
+        Subclasses must implement this; indexing uses ``extract_index_data`` only.
+        """
         raise NotImplementedError
 
-    def extract_classes(
-        self, tree, source_lines: List[str], filepath: str
-    ) -> List[Symbol]:
-        raise NotImplementedError
-
-    def extract_imports(
-        self, tree, source_lines: List[str], filepath: str
-    ) -> List[ImportRef]:
-        raise NotImplementedError
-
-    def extract_calls(
-        self, tree, source_lines: List[str], filepath: str
-    ) -> List[CallSite]:
-        raise NotImplementedError
-
-    # TODO: Might be dead code
     def is_test_file(self, filepath: str) -> bool:
         return False
 
-    def _walk(self, node, node_types: tuple):
-        if node.type in node_types:
+    def _walk(self, node, types: frozenset):
+        """Depth-first; yield nodes whose ``type`` is in ``types``."""
+        if node.type in types:
             yield node
         for child in node.children:
-            yield from self._walk(child, node_types)
+            yield from self._walk(child, types)

@@ -38,6 +38,7 @@ class Parser:
         files_indexed = 0
         files_skipped = 0
         total_symbols = 0
+        present_rel_paths: set[str] = set()
 
         for dirpath, dirnames, filenames in os.walk(proj_root):
             dirnames[:] = [
@@ -46,6 +47,7 @@ class Parser:
             for file in filenames:
                 abs_path = Path(dirpath) / file
                 rel_path = str(abs_path.relative_to(proj_root))
+                present_rel_paths.add(rel_path)
 
                 adapter = self._adapter_for(file)
 
@@ -72,10 +74,9 @@ class Parser:
                 try:
                     source_lines = source.decode("utf-8", errors="replace").splitlines()
                     tree = adapter.parse_file(source, rel_path)
-
-                    symbols = adapter.extract_symbols(tree, source_lines, rel_path)
-                    calls = adapter.extract_calls(tree, source_lines, rel_path)
-                    imports = adapter.extract_imports(tree, source_lines, rel_path)
+                    symbols, calls, imports = adapter.extract_index_data(
+                        tree, source_lines, rel_path
+                    )
                 except Exception:
                     files_skipped += 1
                     continue
@@ -97,9 +98,9 @@ class Parser:
                 files_indexed += 1
                 total_symbols += len(symbols)
 
-        for indexed_file in db.list_files():
-            if not (proj_root / indexed_file).exists():
-                db.remove_file(indexed_file)
+        for indexed_rel in db.list_files():
+            if indexed_rel not in present_rel_paths:
+                db.remove_file(indexed_rel)
 
         elapsed = time.time() - start
         return {

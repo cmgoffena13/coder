@@ -7,10 +7,4 @@ parser.py
 
 db.py
 - One transaction per `upsert_file`. Need to refactor for batch processing.
-- Orphan cleanup - `list_files()` one query listing all files plus stat/exists per row. Merge with the walk to avoid listing the whole db
 - Pragmas (`PRAGMA cache_size`, `temp_store`) - defer index maintenance when batch processing
-
-base.py
-- Multiple tree walks per file. Combine symbols, calls, and imports into one walk
-- `_get_parser()` on every `parse()` - Cache the parser on adapter instance
-- Investigate `_walk` -- what about very deep files?
