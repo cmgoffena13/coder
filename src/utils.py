@@ -1,4 +1,5 @@
 import functools
+import json
 import sys
 import tomllib
 from pathlib import Path
@@ -88,6 +89,29 @@ def read_json(path: Path) -> Any:
     """Read a JSON file."""
     with path.open("rb") as f:
         return orjson.loads(f.read())
+
+
+def loads_json(data: bytes | bytearray | memoryview | str) -> Any:
+    """Parse JSON from UTF-8 bytes or str; fall back to stdlib ``json`` if orjson rejects."""
+    if isinstance(data, str):
+        blob = data.encode("utf-8")
+    else:
+        blob = bytes(data)
+    try:
+        return orjson.loads(blob)
+    except (orjson.JSONDecodeError, TypeError, ValueError):
+        return json.loads(blob.decode("utf-8"))
+
+
+def loads_json_list(raw: bytes | bytearray | memoryview | str | None) -> list:
+    """Parse JSON and return a list, or ``[]`` if null, not a list, or invalid JSON."""
+    if raw is None:
+        return []
+    try:
+        data = loads_json(raw)
+    except Exception:
+        return []
+    return data if isinstance(data, list) else []
 
 
 def write_json(path: Path, obj: Any) -> None:

@@ -9,7 +9,7 @@ search_parameters: dict[str, Any] = {
     "properties": {
         "pattern": {
             "type": "string",
-            "description": "Search pattern (ripgrep syntax when rg is available).",
+            "description": "Search pattern (ripgrep/grep syntax).",
         },
         "path": {
             "type": "string",
@@ -39,7 +39,7 @@ def tool_search(context, args, verbose: bool = False):
         tool_result = result.stdout.strip() or result.stderr.strip() or "(no matches)"
     elif shutil.which("grep"):
         if verbose:
-            print(f"[SEARCH] rg not installed, defaulting to grep")
+            print(f"[SEARCH] ripgrep not installed, defaulting to grep")
         result = subprocess.run(
             ["grep", "-n", "-m", "200", pattern, str(path)],
             cwd=context.root,
@@ -48,7 +48,7 @@ def tool_search(context, args, verbose: bool = False):
         )
         tool_result = result.stdout.strip() or result.stderr.strip() or "(no matches)"
     else:
-        tool_result = "(rg and grep not installed; install ripgrep to use search)"
+        tool_result = "(ripgrep and grep not installed; install ripgrep to use search)"
     if verbose:
         print(f"[SEARCH RESULT]\n {tool_result}")
     return tool_result
@@ -57,7 +57,7 @@ def tool_search(context, args, verbose: bool = False):
 def add_search_tool(context, verbose: bool = False) -> TOOL:
     return TOOL(
         name="search",
-        description="Search the workspace with rg or a simple fallback.",
+        description="Search the workspace with ripgrep or grep as a fallback.",
         parameters=search_parameters,
         fn=lambda **kwargs: tool_search(context, kwargs, verbose),
     )

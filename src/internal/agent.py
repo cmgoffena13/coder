@@ -4,12 +4,18 @@ from typing import Any, Optional
 
 from thoughtflow import AGENT, LLM, MEMORY, TOOL
 
-from src.internal.tools.list_files import add_list_files_tool
-from src.internal.tools.patch_file import add_patch_file_tool
-from src.internal.tools.read_file import add_read_file_tool
-from src.internal.tools.run_shell import add_run_shell_tool
-from src.internal.tools.tool_search import add_search_tool
-from src.internal.tools.write_file import add_write_file_tool
+from src.internal.tools import (
+    add_index_read_tool,
+    add_index_resolve_tool,
+    add_index_search_tool,
+    add_index_task_memory_tool,
+    add_list_files_tool,
+    add_patch_file_tool,
+    add_read_file_tool,
+    add_run_shell_tool,
+    add_search_tool,
+    add_write_file_tool,
+)
 from src.internal.workspace import WorkspaceContext
 from src.settings import config
 
@@ -20,6 +26,11 @@ TOOL_APPROVAL = {
     "run_shell": "approval required",
     "write_file": "approval required",
     "patch_file": "approval required",
+    "index_read": "safe",
+    "index_resolve": "safe",
+    "index_search": "safe",
+    "index_task_memory": "safe",
+    "delegate": "safe",
 }
 
 
@@ -69,6 +80,10 @@ class CoderAgent(AGENT):
             add_run_shell_tool(self.workspace, v),
             add_write_file_tool(self.workspace, v),
             add_patch_file_tool(self.workspace, v),
+            add_index_read_tool(self.workspace, v),
+            add_index_resolve_tool(self.workspace, v),
+            add_index_search_tool(self.workspace, v),
+            add_index_task_memory_tool(self.workspace, v),
         ]
         if getattr(self, "depth", 0) < getattr(self, "max_depth", 1):
             tools.append(add_delegate_tool(self, self.memory, v))

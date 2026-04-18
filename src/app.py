@@ -24,7 +24,7 @@ from src.utils import get_version
 from src.welcome import build_welcome_message
 
 
-def _refresh_code_index(
+def refresh_code_index(
     workspace: WorkspaceContext, verbose: bool, full_refresh: bool = False
 ) -> None:
     try:
@@ -53,7 +53,6 @@ def main():
     agent = CoderAgent(
         workspace=workspace, approval_policy=args.approval, verbose=args.verbose
     )
-    _refresh_code_index(workspace, args.verbose)
     session_path = new_chat_session_path(args.cwd)
     memory = MEMORY()
     if args.latest:
@@ -81,7 +80,7 @@ def main():
             continue
 
         if user_input == "/refresh":
-            _refresh_code_index(workspace, args.verbose, full_refresh=True)
+            refresh_code_index(workspace, args.verbose, full_refresh=True)
             continue
 
         if user_input == "/sessions":
@@ -108,7 +107,7 @@ def main():
             memory.add_msg("user", user_input)
             memory = agent(memory)
             print(memory.last_asst_msg(content_only=True).lstrip())
-            _refresh_code_index(workspace, args.verbose)
+            refresh_code_index(workspace, args.verbose)
             try:
                 ensure_session_index_row(session_path, memory)
                 save_chat_session(memory, session_path)

@@ -1,7 +1,9 @@
 import subprocess
 from pathlib import Path
 
-DOC_NAMES = {"AGENTS.md", "README.md", "pyproject.toml", "Makefile"}
+from src.internal.parse.db import IndexDB
+
+DOC_NAMES = {"AGENTS.md", "pyproject.toml", "Makefile"}
 
 
 def clip(text, limit=4000):
@@ -130,7 +132,6 @@ class WorkspaceContext:
         )
         return "\n".join(
             [
-                "Workspace:",
                 f"- cwd: {self.cwd}",
                 f"- repo_root: {self.repo_root}",
                 f"- branch: {self.branch}",
@@ -139,7 +140,102 @@ class WorkspaceContext:
                 self.status,
                 "- recent_commits:",
                 commits,
+                self.index_overview(),
                 "\n### Project Docs",
                 docs,
             ]
         )
+
+    def _detect_entry_points(self, files: list[str]) -> list[str]:
+        candidates = [
+            "main.py",
+            "app.py",
+            "server.py",
+            "index.py",
+            "run.py",
+            "manage.py",
+            "main.go",
+            "main.rs",
+            "index.js",
+            "index.ts",
+            "app.js",
+            "app.ts",
+            "server.js",
+            "server.ts",
+        ]
+        found = []
+        for file in files:
+            basename = Path(file).name
+            if basename in candidates:
+                found.append(file)
+        return found
+
+    def _tests_summary(self, files: list[str], db: IndexDB) -> dict:
+        test_files = [
+            file for file in files if "test" in file.lower() or "spec" in file.lower()
+        ]
+        if not test_files:
+            return {}
+        test_directories = list({str(Path(file).parent) for file in test_files})
+        (test_function_count,) = db.execute(
+            """
+            SELECT 
+            COUNT(*) 
+            FROM symbols 
+            WHERE (name LIKE 'test_%' OR name LIKE 'Test%') 
+            AND kind = 'function'
+            """
+        )[0]
+        return {
+            "files": len(test_files),
+            "dirs": test_directories[:3],
+            "functions": test_function_count,
+        }
+
+    def index_overview(self) -> str:
+        lines: list[str] = []
+
+        db = IndexDB(self.root)
+        try:
+            stats = db.stats()
+            files = db.list_files()
+            module_rows = db.module_summary()
+            entry_points = self._detect_entry_points(files)
+            test_info = self._tests_summary(files, db)
+
+            lines.append("")
+            lines.append("### Index Overview")
+            lines.append(f"Project: {self.root.name}")
+            lines.append(f"{stats['files']} files, {stats['symbols']} symbols")
+
+            if stats["languages"]:
+                lang_parts = [f"{lang} ({n})" for lang, n in stats["languages"].items()]
+                lines.append("Languages: " + ", ".join(lang_parts))
+                lines.append("")
+
+            if module_rows:
+                lines.append("Modules:")
+                for row in module_rows[:15]:
+                    module = row["module"] or "."
+                    lines.append(
+                        f"  {module} → {row['file_count']} files, {row['symbol_count']} symbols"
+                    )
+                lines.append("")
+
+            if entry_points:
+                lines.append("Entry points: " + ", ".join(entry_points))
+                lines.append("")
+
+            if test_info:
+                lines.append(
+                    f"Tests: {test_info['files']} files, {test_info['functions']} test functions"
+                    + (
+                        f" in {', '.join(test_info['dirs'])}"
+                        if test_info.get("dirs")
+                        else ""
+                    )
+                )
+        finally:
+            db.close()
+
+        return "\n".join(lines)
