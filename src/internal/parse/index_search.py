@@ -41,12 +41,13 @@ def build_fts_match_query(query: str) -> str:
     return " OR ".join(terms)
 
 
-def search_index(db: IndexDB, query: str, limit: int = 15) -> List[SearchResult]:
+def search_index(db: IndexDB, fts_query: str, limit: int = 15) -> List[SearchResult]:
     """
-    Search symbols and call sites via FTS5, merge by definition where possible,
-    and sort by BM25 rank (lower is better).
+    Search symbols and call sites with a pre-built FTS5 ``MATCH`` string.
+
+    ``build_fts_match_query`` must be applied by the caller; this function does
+    not parse natural language again (double-parsing breaks ``word*`` terms).
     """
-    fts_query = build_fts_match_query(query)
     if not fts_query:
         return []
 
