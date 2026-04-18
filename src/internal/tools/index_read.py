@@ -36,7 +36,7 @@ def tool_index_read(
     tool_result = index_read_report(ledger, path, rel_key)
 
     if verbose:
-        print(f"[INDEX_READ RESULT]\n{tool_result[:2000]}")
+        print(f"[INDEX_READ RESULT]\n{tool_result}\n")
     return tool_result
 
 
@@ -46,7 +46,6 @@ def add_index_read_tool(workspace, ledger: DiffLedger, verbose: bool = False) ->
         description=(
             "Smart file read. Returns full content on first access; "
             "returns only the unified diff on re-reads within the same session. "
-            "Use INSTEAD of read_file."
         ),
         parameters=index_read_parameters,
         fn=lambda **kwargs: tool_index_read(workspace, ledger, kwargs, verbose),

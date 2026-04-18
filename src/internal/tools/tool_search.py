@@ -54,7 +54,7 @@ def tool_search(workspace, args, verbose: bool = False):
     else:
         tool_result = "(ripgrep and grep not installed; install ripgrep to use search)"
     if verbose:
-        print(f"[SEARCH RESULT]\n {tool_result}")
+        print(f"[SEARCH RESULT]\n{tool_result}\n")
     return tool_result
 
 

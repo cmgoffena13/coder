@@ -33,7 +33,7 @@ def tool_index_resolve(workspace, args, verbose: bool = False):
         db.close()
 
     if verbose:
-        print(f"[INDEX_RESOLVE RESULT]\n{tool_result}")
+        print(f"[INDEX_RESOLVE RESULT]\n{tool_result}\n")
     return tool_result
 
 

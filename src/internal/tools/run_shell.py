@@ -53,7 +53,7 @@ def tool_run_shell(workspace, args, verbose: bool = False):
         ]
     )
     if verbose:
-        print(f"[RUN_SHELL RESULT]\n {tool_result}")
+        print(f"[RUN_SHELL RESULT]\n{tool_result}\n")
     return tool_result
 
 

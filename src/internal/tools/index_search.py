@@ -41,7 +41,7 @@ def tool_index_search(workspace, args, verbose: bool = False):
         db.close()
 
     if verbose:
-        print(f"[INDEX_SEARCH RESULT]\n{tool_result}")
+        print(f"[INDEX_SEARCH RESULT]\n{tool_result}\n")
     return tool_result
 
 
@@ -50,8 +50,7 @@ def add_index_search_tool(workspace, verbose: bool = False) -> TOOL:
         name="index_search",
         description=(
             "Search the codebase by keywords using FTS5 full-text search. "
-            "Use BEFORE running ripgrep or grep. Matches symbol names, signatures, "
-            "file paths, and call-site context lines. "
+            "Matches symbol names, signatures, file paths, and call-site context lines. "
             "Input: natural language query (e.g. 'auth token 401 unauthorized')."
         ),
         parameters=index_search_parameters,

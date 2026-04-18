@@ -11,9 +11,7 @@ from src.internal.tools import (
     add_index_search_tool,
     add_list_files_tool,
     add_patch_file_tool,
-    add_read_file_tool,
     add_run_shell_tool,
-    add_search_tool,
     add_write_file_tool,
 )
 from src.internal.workspace import WorkspaceContext
@@ -21,8 +19,8 @@ from src.settings import config
 
 TOOL_APPROVAL = {
     "list_files": "safe",
-    "read_file": "safe",
-    "search": "safe",
+    # "read_file": "safe",
+    # "search": "safe",
     "run_shell": "approval required",
     "write_file": "approval required",
     "patch_file": "approval required",
@@ -75,8 +73,8 @@ class CoderAgent(AGENT):
         v = self.verbose
         tools = [
             add_list_files_tool(self.workspace, v),
-            add_read_file_tool(self.workspace, v),
-            add_search_tool(self.workspace, v),
+            # add_read_file_tool(self.workspace, v),
+            # add_search_tool(self.workspace, v),
             add_run_shell_tool(self.workspace, v),
             add_write_file_tool(self.workspace, v),
             add_patch_file_tool(self.workspace, v),

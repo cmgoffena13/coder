@@ -15,9 +15,7 @@ list_files_parameters: dict[str, Any] = {
         "path": {
             "type": "string",
             "description": (
-                "Directory path relative to the workspace root (default: current directory). "
-                f"Tree listing: indents and └─ show nesting, up to {_LIST_FILES_MAX_DEPTH} levels, "
-                f"{_LIST_FILES_MAX_ENTRIES} lines max."
+                "Directory path relative to the workspace root (default: current directory)."
             ),
             "default": ".",
         },
@@ -79,7 +77,7 @@ def tool_list_files(workspace, args, verbose: bool = False):
 
     tool_result = "\n".join(lines) or "(empty)"
     if verbose:
-        print(f"[LIST_FILES RESULT]\n {tool_result}")
+        print(f"[LIST_FILES RESULT]\n{tool_result}\n")
     return tool_result
 
 
@@ -87,7 +85,8 @@ def add_list_files_tool(workspace, verbose: bool = False) -> TOOL:
     return TOOL(
         name="list_files",
         description=(
-            "Tree-list files and directories under a path (indents and └─ for nesting; "
+            "Tree-list files and directories under a path recursively (indents and └─ for nesting; "
+            "This is a LAST RESORT tool. Use index_search or index_resolve instead."
             "max 5 levels below the path, 200 lines)."
         ),
         parameters=list_files_parameters,

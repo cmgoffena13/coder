@@ -50,7 +50,7 @@ def tool_patch_file(workspace, args, verbose: bool = False):
     path.write_text(text.replace(old_text, str(args["new_text"]), 1), encoding="utf-8")
     tool_result = f"patched {path.relative_to(workspace.root)}"
     if verbose:
-        print(f"[PATCH_FILE RESULT]\n {tool_result}")
+        print(f"[PATCH_FILE RESULT]\n{tool_result}\n")
     return tool_result
 
 

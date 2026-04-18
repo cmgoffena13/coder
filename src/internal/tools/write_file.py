@@ -29,7 +29,7 @@ def tool_write_file(workspace, args, verbose: bool = False):
     path.write_text(content, encoding="utf-8")
     tool_result = f"wrote {path.relative_to(workspace.root)} ({len(content)} chars)"
     if verbose:
-        print(f"[WRITE_FILE RESULT]\n {tool_result}")
+        print(f"[WRITE_FILE RESULT]\n{tool_result}\n")
     return tool_result
 
 
