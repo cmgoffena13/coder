@@ -32,7 +32,7 @@ class ResolveResult:
     candidates: List[dict] = field(default_factory=list)
 
 
-def _read_source_block(root: Path, filepath: str, start: int, end: int) -> str:
+def _read_source_block(root: Path, filepath: Path, start: int, end: int) -> str:
     path = root / filepath
     if not path.is_file():
         return "(source unavailable — file missing on disk)"
@@ -45,8 +45,9 @@ def _read_source_block(root: Path, filepath: str, start: int, end: int) -> str:
 
 
 def _find_enclosing_test(db: IndexDB, caller_file: str, line: int) -> str:
-    adapter = AdapterFactory.get_adapter(caller_file)
-    if adapter is None or not adapter.is_test_file(caller_file):
+    caller = Path(caller_file)
+    adapter = AdapterFactory.get_adapter(caller)
+    if adapter is None or not adapter.is_test_file(caller):
         return ""
     rows = db.execute(
         """
@@ -120,7 +121,7 @@ def resolve_index(db: IndexDB, symbol_name: str, project_root: Path) -> ResolveR
     root = project_root.resolve()
     source_code = _read_source_block(
         root,
-        str(defn["file"]),
+        Path(str(defn["file"])),
         int(defn["start_line"]),
         int(defn["end_line"]),
     )
@@ -145,7 +146,7 @@ def resolve_index(db: IndexDB, symbol_name: str, project_root: Path) -> ResolveR
     import_rows = db.get_importers(sym_key_name)
     importers = sorted({str(r["file"]) for r in import_rows})
 
-    git_row = db.get_git_info(str(defn["file"]))
+    git_row = db.get_git_info(Path(str(defn["file"])))
     git_last_modified = str(git_row["last_modified"] or "") if git_row else ""
     git_commit_hash = str(git_row["last_commit_hash"] or "") if git_row else ""
 

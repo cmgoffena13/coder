@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import List, Tuple
 
 from src.internal.parse.base import CallSite, ImportRef, LanguageAdapter, Symbol
@@ -18,7 +19,7 @@ class RustAdapter(LanguageAdapter):
     }
 
     def extract_index_data(
-        self, tree, source_lines: List[str], filepath: str
+        self, tree, source_lines: List[str], filepath: Path
     ) -> Tuple[List[Symbol], List[CallSite], List[ImportRef]]:
         symbols: List[Symbol] = []
         calls: List[CallSite] = []
@@ -43,7 +44,9 @@ class RustAdapter(LanguageAdapter):
                 line = source_lines[node.start_point[0]].strip() if source_lines else ""
                 imports.append(
                     ImportRef(
-                        symbol_name=node.text.decode(), file=filepath, import_line=line
+                        symbol_name=node.text.decode(),
+                        file=str(filepath),
+                        import_line=line,
                     )
                 )
             elif t in self.call_node_types:
@@ -53,7 +56,7 @@ class RustAdapter(LanguageAdapter):
         return symbols, calls, imports
 
     def _symbol_from_function_item(
-        self, node, source_lines: List[str], filepath: str
+        self, node, source_lines: List[str], filepath: Path
     ) -> Symbol | None:
         name_node = node.child_by_field_name("name")
         if not name_node:
@@ -62,7 +65,7 @@ class RustAdapter(LanguageAdapter):
         return Symbol(
             name=name_node.text.decode(),
             kind="function",
-            file=filepath,
+            file=str(filepath),
             start_line=node.start_point[0] + 1,
             end_line=node.end_point[0] + 1,
             signature=sig,
@@ -70,7 +73,7 @@ class RustAdapter(LanguageAdapter):
         )
 
     def _symbol_from_class_like(
-        self, node, source_lines: List[str], filepath: str
+        self, node, source_lines: List[str], filepath: Path
     ) -> Symbol | None:
         name_node = node.child_by_field_name("name")
         if not name_node:
@@ -79,7 +82,7 @@ class RustAdapter(LanguageAdapter):
         return Symbol(
             name=name_node.text.decode(),
             kind=self._CLASS_KIND.get(node.type, "class"),
-            file=filepath,
+            file=str(filepath),
             start_line=node.start_point[0] + 1,
             end_line=node.end_point[0] + 1,
             signature=sig,
@@ -87,7 +90,7 @@ class RustAdapter(LanguageAdapter):
         )
 
     def _call_site_from_node(
-        self, node, source_lines: List[str], filepath: str
+        self, node, source_lines: List[str], filepath: Path
     ) -> CallSite | None:
         if node.type == "call_expression":
             fn_node = node.child_by_field_name("function")
@@ -101,12 +104,11 @@ class RustAdapter(LanguageAdapter):
         context = source_lines[line_idx].rstrip() if source_lines else ""
         return CallSite(
             symbol_name=name,
-            caller_file=filepath,
+            caller_file=str(filepath),
             line=line_idx + 1,
             context=context,
             full_name=full_name,
         )
 
-    def is_test_file(self, filepath: str) -> bool:
-        parts = filepath.replace("\\", "/").split("/")
-        return "tests" in parts
+    def is_test_file(self, filepath: Path) -> bool:
+        return "tests" in filepath.parts

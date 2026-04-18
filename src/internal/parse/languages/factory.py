@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 from typing import Optional, TypedDict
 
 from src.internal.parse.base import LanguageAdapter
@@ -34,8 +34,8 @@ class AdapterFactory:
     }
 
     @staticmethod
-    def get_adapter(filepath: str) -> Optional[LanguageAdapter]:
-        ext = os.path.splitext(filepath)[1].lower()
+    def get_adapter(filepath: Path) -> Optional[LanguageAdapter]:
+        ext = filepath.suffix.lower()
         for cfg in AdapterFactory.adapters.values():
             if ext in cfg["extensions"]:
                 return cfg["adapter"]()

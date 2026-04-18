@@ -140,9 +140,9 @@ class IndexDB:
         cur = self._conn.execute(sql, params)
         return cur.fetchall()
 
-    def is_stale(self, filepath: str, content_hash: str) -> bool:
+    def is_stale(self, filepath: Path, content_hash: str) -> bool:
         rows = self.execute(
-            "SELECT content_hash FROM file_meta WHERE file = ?", (filepath,)
+            "SELECT content_hash FROM file_meta WHERE file = ?", (str(filepath),)
         )
         if not rows:
             return True
@@ -150,7 +150,7 @@ class IndexDB:
 
     def _write_file_index_unlocked(
         self,
-        filepath: str,
+        filepath: Path,
         content_hash: str,
         language: str,
         line_count: int,
@@ -159,9 +159,10 @@ class IndexDB:
         imports,
     ) -> None:
         """Replace index rows for one file; caller must hold an open transaction."""
-        self._conn.execute("DELETE FROM symbols WHERE file = ?", (filepath,))
-        self._conn.execute("DELETE FROM calls WHERE caller_file = ?", (filepath,))
-        self._conn.execute("DELETE FROM imports WHERE file = ?", (filepath,))
+        key = str(filepath)
+        self._conn.execute("DELETE FROM symbols WHERE file = ?", (key,))
+        self._conn.execute("DELETE FROM calls WHERE caller_file = ?", (key,))
+        self._conn.execute("DELETE FROM imports WHERE file = ?", (key,))
 
         self._conn.executemany(
             "INSERT INTO symbols (name, kind, file, start_line, end_line, signature, language) "
@@ -170,7 +171,7 @@ class IndexDB:
                 (
                     s.name,
                     s.kind,
-                    s.file,
+                    key,
                     s.start_line,
                     s.end_line,
                     s.signature,
@@ -183,36 +184,34 @@ class IndexDB:
         self._conn.executemany(
             "INSERT INTO calls (symbol_name, caller_file, line, context, full_name) "
             "VALUES (?, ?, ?, ?, ?)",
-            [
-                (c.symbol_name, c.caller_file, c.line, c.context, c.full_name)
-                for c in calls
-            ],
+            [(c.symbol_name, key, c.line, c.context, c.full_name) for c in calls],
         )
 
         self._conn.executemany(
             "INSERT INTO imports (symbol_name, file, import_line) VALUES (?, ?, ?)",
-            [(i.symbol_name, i.file, i.import_line) for i in imports],
+            [(i.symbol_name, key, i.import_line) for i in imports],
         )
 
         self._conn.execute(
             "INSERT OR REPLACE INTO file_meta (file, content_hash, last_indexed, language, line_count) "
             "VALUES (?, ?, ?, ?, ?)",
-            (filepath, content_hash, time.time(), language, line_count),
+            (key, content_hash, time.time(), language, line_count),
         )
 
     def _replace_git_info_unlocked(
-        self, filepath: str, last_modified: str, commit_hash: str
+        self, filepath: Path, last_modified: str, commit_hash: str
     ) -> None:
         """Caller must hold an open transaction."""
+        key = str(filepath)
         self._conn.execute(
             "INSERT OR REPLACE INTO git_info (file, last_modified, last_commit_hash) "
             "VALUES (?, ?, ?)",
-            (filepath, last_modified, commit_hash),
+            (key, last_modified, commit_hash),
         )
 
     def upsert_file(
         self,
-        filepath: str,
+        filepath: Path,
         content_hash: str,
         language: str,
         line_count: int,
@@ -233,44 +232,42 @@ class IndexDB:
 
     def apply_index_batch(self, items: Sequence[IndexBatchItem]) -> None:
         """Commit many files in one transaction (per-file delete+insert semantics preserved)."""
-        if not items:
-            return
         with self._conn:
-            for it in items:
+            for item in items:
+                relative_path = Path(item.filepath)
                 self._write_file_index_unlocked(
-                    it.filepath,
-                    it.content_hash,
-                    it.language,
-                    it.line_count,
-                    it.symbols,
-                    it.calls,
-                    it.imports,
+                    relative_path,
+                    item.content_hash,
+                    item.language,
+                    item.line_count,
+                    item.symbols,
+                    item.calls,
+                    item.imports,
                 )
-                if it.git_commit_hash:
+                if item.git_commit_hash:
                     self._replace_git_info_unlocked(
-                        it.filepath,
-                        it.git_last_modified or "",
-                        it.git_commit_hash,
+                        relative_path,
+                        item.git_last_modified or "",
+                        item.git_commit_hash,
                     )
 
-    def _remove_file_unlocked(self, filepath: str) -> None:
-        self._conn.execute("DELETE FROM symbols WHERE file = ?", (filepath,))
-        self._conn.execute("DELETE FROM calls WHERE caller_file = ?", (filepath,))
-        self._conn.execute("DELETE FROM imports WHERE file = ?", (filepath,))
-        self._conn.execute("DELETE FROM file_meta WHERE file = ?", (filepath,))
-        self._conn.execute("DELETE FROM git_info WHERE file = ?", (filepath,))
+    def _remove_file_unlocked(self, filepath: Path) -> None:
+        key = str(filepath)
+        self._conn.execute("DELETE FROM symbols WHERE file = ?", (key,))
+        self._conn.execute("DELETE FROM calls WHERE caller_file = ?", (key,))
+        self._conn.execute("DELETE FROM imports WHERE file = ?", (key,))
+        self._conn.execute("DELETE FROM file_meta WHERE file = ?", (key,))
+        self._conn.execute("DELETE FROM git_info WHERE file = ?", (key,))
 
-    def remove_file(self, filepath: str):
+    def remove_file(self, filepath: Path):
         with self._conn:
             self._remove_file_unlocked(filepath)
 
-    def remove_files_batch(self, paths: Sequence[str]) -> None:
+    def remove_files_batch(self, paths: Sequence[Path]) -> None:
         """Remove index rows for many paths in one transaction."""
-        if not paths:
-            return
         with self._conn:
-            for p in paths:
-                self._remove_file_unlocked(p)
+            for path in paths:
+                self._remove_file_unlocked(path)
 
     def search_symbols(self, fts_query: str, limit: int = 15) -> List[Row]:
         return self.execute(
@@ -323,8 +320,9 @@ class IndexDB:
             (symbol_name,),
         )
 
-    def get_git_info(self, filepath: str) -> Optional[Row]:
-        rows = self.execute("SELECT * FROM git_info WHERE file = ?", (filepath,))
+    def get_git_info(self, filepath: Path) -> Optional[Row]:
+        key = str(filepath)
+        rows = self.execute("SELECT * FROM git_info WHERE file = ?", (key,))
         return rows[0] if rows else None
 
     def stats(self) -> dict:
@@ -365,6 +363,6 @@ class IndexDB:
             """
         )
 
-    def list_files(self) -> List[str]:
+    def list_files(self) -> List[Path]:
         rows = self.execute("SELECT file FROM file_meta ORDER BY file")
-        return [row["file"] for row in rows]
+        return [Path(row["file"]) for row in rows]

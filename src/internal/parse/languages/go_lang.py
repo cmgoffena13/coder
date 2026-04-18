@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 from typing import List, Tuple
 
 from src.internal.parse.base import CallSite, ImportRef, LanguageAdapter, Symbol
@@ -13,7 +13,7 @@ class GoAdapter(LanguageAdapter):
     call_node_types = ("call_expression",)
 
     def extract_index_data(
-        self, tree, source_lines: List[str], filepath: str
+        self, tree, source_lines: List[str], filepath: Path
     ) -> Tuple[List[Symbol], List[CallSite], List[ImportRef]]:
         symbols: List[Symbol] = []
         calls: List[CallSite] = []
@@ -48,7 +48,7 @@ class GoAdapter(LanguageAdapter):
         return symbols, calls, imports
 
     def _symbol_from_function_node(
-        self, node, source_lines: List[str], filepath: str
+        self, node, source_lines: List[str], filepath: Path
     ) -> Symbol | None:
         name_node = node.child_by_field_name("name")
         if not name_node:
@@ -58,7 +58,7 @@ class GoAdapter(LanguageAdapter):
         return Symbol(
             name=name_node.text.decode(),
             kind=kind,
-            file=filepath,
+            file=str(filepath),
             start_line=node.start_point[0] + 1,
             end_line=node.end_point[0] + 1,
             signature=sig,
@@ -66,7 +66,7 @@ class GoAdapter(LanguageAdapter):
         )
 
     def _symbol_from_type_spec(
-        self, spec, type_decl_node, source_lines: List[str], filepath: str
+        self, spec, type_decl_node, source_lines: List[str], filepath: Path
     ) -> Symbol | None:
         name_node = spec.child_by_field_name("name")
         if not name_node:
@@ -77,7 +77,7 @@ class GoAdapter(LanguageAdapter):
         return Symbol(
             name=name_node.text.decode(),
             kind="class",
-            file=filepath,
+            file=str(filepath),
             start_line=type_decl_node.start_point[0] + 1,
             end_line=type_decl_node.end_point[0] + 1,
             signature=sig,
@@ -85,7 +85,7 @@ class GoAdapter(LanguageAdapter):
         )
 
     def _import_refs_from_declaration(
-        self, node, source_lines: List[str], filepath: str
+        self, node, source_lines: List[str], filepath: Path
     ) -> List[ImportRef]:
         refs: List[ImportRef] = []
         line = source_lines[node.start_point[0]].strip() if source_lines else ""
@@ -93,11 +93,13 @@ class GoAdapter(LanguageAdapter):
             path_node = child.child_by_field_name("path")
             if path_node:
                 pkg = path_node.text.decode().strip('"').split("/")[-1]
-                refs.append(ImportRef(symbol_name=pkg, file=filepath, import_line=line))
+                refs.append(
+                    ImportRef(symbol_name=pkg, file=str(filepath), import_line=line)
+                )
         return refs
 
     def _call_site_from_node(
-        self, node, source_lines: List[str], filepath: str
+        self, node, source_lines: List[str], filepath: Path
     ) -> CallSite | None:
         fn_node = node.child_by_field_name("function")
         if not fn_node:
@@ -108,11 +110,11 @@ class GoAdapter(LanguageAdapter):
         context = source_lines[line_idx].rstrip() if source_lines else ""
         return CallSite(
             symbol_name=name,
-            caller_file=filepath,
+            caller_file=str(filepath),
             line=line_idx + 1,
             context=context,
             full_name=full_name,
         )
 
-    def is_test_file(self, filepath: str) -> bool:
-        return os.path.basename(filepath).endswith("_test.go")
+    def is_test_file(self, filepath: Path) -> bool:
+        return filepath.name.endswith("_test.go")

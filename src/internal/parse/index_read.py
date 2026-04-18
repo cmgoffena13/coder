@@ -69,13 +69,14 @@ class DiffLedger:
         self._turn = 0
 
 
-def index_read_report(ledger: DiffLedger, abs_path: Path, rel_display: str) -> str:
+def index_read_report(ledger: DiffLedger, abs_path: Path, relative_path: Path) -> str:
     """Read via ledger and add the same headings the index_read tool used."""
     raw = ledger.read_file(str(abs_path.resolve()))
+    label = str(relative_path)
     if raw.startswith("[ERROR"):
         return raw
     if ": unchanged since turn" in raw:
-        return f"# index_read (unchanged): {rel_display}\n\n{raw}"
+        return f"# index_read (unchanged): {label}\n\n{raw}"
     if ": changed since turn" in raw:
-        return f"# index_read (diff): {rel_display}\n\n{raw}"
-    return f"# index_read (full): {rel_display}\n\n{raw}"
+        return f"# index_read (diff): {label}\n\n{raw}"
+    return f"# index_read (full): {label}\n\n{raw}"

@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 from typing import List, Tuple
 
 from src.internal.parse.base import CallSite, ImportRef, LanguageAdapter, Symbol
@@ -13,7 +13,7 @@ class PythonAdapter(LanguageAdapter):
     call_node_types = ("call",)
 
     def extract_index_data(
-        self, tree, source_lines: List[str], filepath: str
+        self, tree, source_lines: List[str], filepath: Path
     ) -> Tuple[List[Symbol], List[CallSite], List[ImportRef]]:
         symbols: List[Symbol] = []
         calls: List[CallSite] = []
@@ -45,7 +45,7 @@ class PythonAdapter(LanguageAdapter):
         return symbols, calls, imports
 
     def _symbol_from_function_node(
-        self, node, source_lines: List[str], filepath: str
+        self, node, source_lines: List[str], filepath: Path
     ) -> Symbol | None:
         name_node = node.child_by_field_name("name")
         if not name_node:
@@ -56,7 +56,7 @@ class PythonAdapter(LanguageAdapter):
         return Symbol(
             name=name,
             kind=kind,
-            file=filepath,
+            file=str(filepath),
             start_line=node.start_point[0] + 1,
             end_line=node.end_point[0] + 1,
             signature=sig,
@@ -64,7 +64,7 @@ class PythonAdapter(LanguageAdapter):
         )
 
     def _symbol_from_class_node(
-        self, node, source_lines: List[str], filepath: str
+        self, node, source_lines: List[str], filepath: Path
     ) -> Symbol | None:
         name_node = node.child_by_field_name("name")
         if not name_node:
@@ -74,7 +74,7 @@ class PythonAdapter(LanguageAdapter):
         return Symbol(
             name=name,
             kind="class",
-            file=filepath,
+            file=str(filepath),
             start_line=node.start_point[0] + 1,
             end_line=node.end_point[0] + 1,
             signature=sig,
@@ -82,7 +82,7 @@ class PythonAdapter(LanguageAdapter):
         )
 
     def _import_refs_from_node(
-        self, node, source_lines: List[str], filepath: str
+        self, node, source_lines: List[str], filepath: Path
     ) -> List[ImportRef]:
         refs: List[ImportRef] = []
         line = source_lines[node.start_point[0]].strip() if source_lines else ""
@@ -95,7 +95,7 @@ class PythonAdapter(LanguageAdapter):
             ]
             for name in names:
                 refs.append(
-                    ImportRef(symbol_name=name, file=filepath, import_line=line)
+                    ImportRef(symbol_name=name, file=str(filepath), import_line=line)
                 )
         else:
             for child in node.children:
@@ -103,14 +103,14 @@ class PythonAdapter(LanguageAdapter):
                     refs.append(
                         ImportRef(
                             symbol_name=child.text.decode(),
-                            file=filepath,
+                            file=str(filepath),
                             import_line=line,
                         )
                     )
         return refs
 
     def _call_site_from_node(
-        self, node, source_lines: List[str], filepath: str
+        self, node, source_lines: List[str], filepath: Path
     ) -> CallSite | None:
         func_node = node.child_by_field_name("function")
         if not func_node:
@@ -121,15 +121,15 @@ class PythonAdapter(LanguageAdapter):
         context = source_lines[line_idx].rstrip() if source_lines else ""
         return CallSite(
             symbol_name=name,
-            caller_file=filepath,
+            caller_file=str(filepath),
             line=line_idx + 1,
             context=context,
             full_name=full_name,
         )
 
-    def is_test_file(self, filepath: str) -> bool:
-        basename = os.path.basename(filepath)
-        return basename.startswith("test_") or basename.endswith("_test.py")
+    def is_test_file(self, filepath: Path) -> bool:
+        n = filepath.name
+        return n.startswith("test_") or n.endswith("_test.py")
 
     def _is_method(self, func_node) -> bool:
         """True if the function is defined inside a class body."""

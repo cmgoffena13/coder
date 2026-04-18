@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from pathlib import Path
 from typing import List, Tuple, cast
 
 from tree_sitter_language_pack import SupportedLanguage, get_parser
@@ -57,12 +58,12 @@ class LanguageAdapter:
     def parse(self, source: bytes):
         return self._get_parser().parse(source)
 
-    def parse_file(self, source: bytes, filepath: str):
+    def parse_file(self, source: bytes, filepath: Path):
         """Subclasses may choose grammar by ``filepath``; default uses ``parse``."""
         return self.parse(source)
 
     def extract_index_data(
-        self, tree, source_lines: List[str], filepath: str
+        self, tree, source_lines: List[str], filepath: Path
     ) -> Tuple[List[Symbol], List[CallSite], List[ImportRef]]:
         """
         Single pass over the parse tree: symbols, call sites, and imports.
@@ -71,7 +72,7 @@ class LanguageAdapter:
         """
         raise NotImplementedError
 
-    def is_test_file(self, filepath: str) -> bool:
+    def is_test_file(self, filepath: Path) -> bool:
         return False
 
     def _walk(self, node, types: frozenset):

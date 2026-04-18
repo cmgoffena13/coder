@@ -23,7 +23,7 @@ def tool_write_file(workspace, args, verbose: bool = False):
         print(
             f"[WRITE_FILE INPUT] Path: {args.get('path', '')}; Content: {args.get('content', '')}"
         )
-    path = workspace.path(args["path"])
+    path = workspace.convert_relative_str_to_path(str(args["path"]).strip() or ".")
     content = str(args["content"])
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")

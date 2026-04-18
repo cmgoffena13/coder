@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 from typing import List, Tuple
 
 from src.internal.parse.base import CallSite, ImportRef, LanguageAdapter, Symbol
@@ -27,16 +27,16 @@ class JavaScriptAdapter(LanguageAdapter):
     import_node_types = _IMPORT_TYPES
     call_node_types = _CALL_TYPES
 
-    def _parser_for(self, filepath: str):
-        ext = os.path.splitext(filepath)[1].lower()
+    def _parser_for(self, filepath: Path):
+        ext = filepath.suffix.lower()
         lang = "typescript" if ext in (".ts", ".tsx") else "javascript"
         return self._parser_for_language(lang)
 
-    def parse_file(self, source: bytes, filepath: str):
+    def parse_file(self, source: bytes, filepath: Path):
         return self._parser_for(filepath).parse(source)
 
     def extract_index_data(
-        self, tree, source_lines: List[str], filepath: str
+        self, tree, source_lines: List[str], filepath: Path
     ) -> Tuple[List[Symbol], List[CallSite], List[ImportRef]]:
         symbols: List[Symbol] = []
         calls: List[CallSite] = []
@@ -65,7 +65,7 @@ class JavaScriptAdapter(LanguageAdapter):
                     imports.append(
                         ImportRef(
                             symbol_name=child.text.decode(),
-                            file=filepath,
+                            file=str(filepath),
                             import_line=line,
                         )
                     )
@@ -79,7 +79,9 @@ class JavaScriptAdapter(LanguageAdapter):
                     )
                     imports.append(
                         ImportRef(
-                            symbol_name="require", file=filepath, import_line=line
+                            symbol_name="require",
+                            file=str(filepath),
+                            import_line=line,
                         )
                     )
                 site = self._call_site_from_call_expression(
@@ -90,7 +92,7 @@ class JavaScriptAdapter(LanguageAdapter):
         return symbols, calls, imports
 
     def _symbol_from_function_node(
-        self, node, source_lines: List[str], filepath: str
+        self, node, source_lines: List[str], filepath: Path
     ) -> Symbol | None:
         name = self._function_name(node)
         if not name:
@@ -100,7 +102,7 @@ class JavaScriptAdapter(LanguageAdapter):
         return Symbol(
             name=name,
             kind=kind,
-            file=filepath,
+            file=str(filepath),
             start_line=node.start_point[0] + 1,
             end_line=node.end_point[0] + 1,
             signature=sig,
@@ -108,7 +110,7 @@ class JavaScriptAdapter(LanguageAdapter):
         )
 
     def _symbol_from_class_node(
-        self, node, source_lines: List[str], filepath: str
+        self, node, source_lines: List[str], filepath: Path
     ) -> Symbol | None:
         name_node = node.child_by_field_name("name")
         if not name_node:
@@ -117,7 +119,7 @@ class JavaScriptAdapter(LanguageAdapter):
         return Symbol(
             name=name_node.text.decode(),
             kind="class",
-            file=filepath,
+            file=str(filepath),
             start_line=node.start_point[0] + 1,
             end_line=node.end_point[0] + 1,
             signature=sig,
@@ -125,7 +127,7 @@ class JavaScriptAdapter(LanguageAdapter):
         )
 
     def _call_site_from_call_expression(
-        self, node, source_lines: List[str], filepath: str
+        self, node, source_lines: List[str], filepath: Path
     ) -> CallSite | None:
         fn_node = node.child_by_field_name("function")
         if not fn_node:
@@ -136,16 +138,16 @@ class JavaScriptAdapter(LanguageAdapter):
         context = source_lines[line_idx].rstrip() if source_lines else ""
         return CallSite(
             symbol_name=name,
-            caller_file=filepath,
+            caller_file=str(filepath),
             line=line_idx + 1,
             context=context,
             full_name=full_name,
         )
 
-    def is_test_file(self, filepath: str) -> bool:
-        basename = os.path.basename(filepath)
-        parts = filepath.replace("\\", "/").split("/")
-        return ".test." in basename or ".spec." in basename or "__tests__" in parts
+    def is_test_file(self, filepath: Path) -> bool:
+        n = filepath.name
+        parts = filepath.parts
+        return ".test." in n or ".spec." in n or "__tests__" in parts
 
     def _function_name(self, node) -> str:
         """Extract function name from various function node shapes."""

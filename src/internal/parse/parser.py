@@ -8,7 +8,6 @@ import xxhash
 from src.internal.git_utils import (
     ignored_path_names_from_gitignore,
     last_commits_for_paths,
-    norm_git_repo_path,
 )
 from src.internal.parse.base import LanguageAdapter
 from src.internal.parse.db import IndexBatchItem, IndexDB
@@ -23,15 +22,15 @@ class Parser:
         self._adapters_by_ext: dict[str, Optional[LanguageAdapter]] = {}
         self._index_batch: list[IndexBatchItem] = []
 
-    def _adapter_for(self, filename: str) -> Optional[LanguageAdapter]:
-        """Return a language adapter for ``filename`` (cached by extension)."""
-        ext = os.path.splitext(filename)[1].lower()
+    def _adapter_for(self, basename: str) -> Optional[LanguageAdapter]:
+        """Return a language adapter for a filename within a walk (cached by extension)."""
+        ext = Path(basename).suffix.lower()
         if ext not in self._adapters_by_ext:
-            self._adapters_by_ext[ext] = AdapterFactory.get_adapter(filename)
+            self._adapters_by_ext[ext] = AdapterFactory.get_adapter(Path(basename))
         return self._adapters_by_ext[ext]
 
     def _flush_index_batch(
-        self, db: IndexDB, *, proj_root: Path, git_metadata: bool
+        self, db: IndexDB, *, root: Path, git_metadata: bool
     ) -> tuple[int, int]:
         """Persist :attr:`_index_batch` and clear it. Returns ``(files_count, symbol_count)``."""
         batch = self._index_batch
@@ -40,16 +39,13 @@ class Parser:
         num_files = len(batch)
         num_symbols = sum(len(item.symbols) for item in batch)
         if git_metadata:
-            paths = list(
-                dict.fromkeys(norm_git_repo_path(item.filepath) for item in batch)
-            )
+            paths = list(dict.fromkeys(Path(item.filepath) for item in batch))
             commits = last_commits_for_paths(
-                proj_root, paths, chunk_size=INDEX_DB_BATCH_SIZE
+                root, paths, chunk_size=INDEX_DB_BATCH_SIZE
             )
             for item in batch:
-                key = norm_git_repo_path(item.filepath)
                 item.git_commit_hash, item.git_last_modified = commits.get(
-                    key, ("", "")
+                    Path(item.filepath), ("", "")
                 )
         db.apply_index_batch(batch)
         batch.clear()
@@ -64,23 +60,24 @@ class Parser:
     ) -> dict[str, Union[int, float]]:
         start = time.time()
 
-        proj_root = directory.resolve()
-        ignore_dirs = ignored_path_names_from_gitignore(proj_root)
+        root = directory.resolve()
+        ignore_dirs = ignored_path_names_from_gitignore(root)
         self._index_batch.clear()
 
         files_indexed = 0
         files_skipped = 0
         total_symbols = 0
-        present_rel_paths: set[str] = set()
+        present_relative_paths: set[Path] = set()
 
-        for dirpath, dirnames, filenames in os.walk(proj_root):
+        for dirpath, dirnames, filenames in os.walk(root):
             dirnames[:] = [
                 d for d in dirnames if d not in ignore_dirs and not d.startswith(".")
             ]
+            dir_path = Path(dirpath)
             for file in filenames:
-                abs_path = Path(dirpath) / file
-                rel_path = str(abs_path.relative_to(proj_root))
-                present_rel_paths.add(rel_path)
+                abs_path = dir_path / file
+                relative_path = abs_path.relative_to(root)
+                present_relative_paths.add(relative_path)
 
                 adapter = self._adapter_for(file)
 
@@ -100,15 +97,15 @@ class Parser:
 
                 content_hash = xxhash.xxh128(source).hexdigest()
 
-                if not full_refresh and not db.is_stale(rel_path, content_hash):
+                if not full_refresh and not db.is_stale(relative_path, content_hash):
                     files_skipped += 1
                     continue
 
                 try:
                     source_lines = source.decode("utf-8", errors="replace").splitlines()
-                    tree = adapter.parse_file(source, rel_path)
+                    tree = adapter.parse_file(source, relative_path)
                     symbols, calls, imports = adapter.extract_index_data(
-                        tree, source_lines, rel_path
+                        tree, source_lines, relative_path
                     )
                 except Exception:
                     files_skipped += 1
@@ -116,7 +113,7 @@ class Parser:
 
                 self._index_batch.append(
                     IndexBatchItem(
-                        filepath=rel_path,
+                        filepath=str(relative_path),
                         content_hash=content_hash,
                         language=adapter.language_name,
                         line_count=len(source_lines),
@@ -127,21 +124,21 @@ class Parser:
                 )
                 if len(self._index_batch) >= INDEX_DB_BATCH_SIZE:
                     file_count, symbol_count = self._flush_index_batch(
-                        db, proj_root=proj_root, git_metadata=git_metadata
+                        db, root=root, git_metadata=git_metadata
                     )
                     files_indexed += file_count
                     total_symbols += symbol_count
 
         file_count, symbol_count = self._flush_index_batch(
-            db, proj_root=proj_root, git_metadata=git_metadata
+            db, root=root, git_metadata=git_metadata
         )
         files_indexed += file_count
         total_symbols += symbol_count
 
         to_remove = [
-            indexed_rel
-            for indexed_rel in db.list_files()
-            if indexed_rel not in present_rel_paths
+            indexed_relative_path
+            for indexed_relative_path in db.list_files()
+            if indexed_relative_path not in present_relative_paths
         ]
         db.remove_files_batch(to_remove)
 

@@ -21,19 +21,19 @@ def tool_index_read(
 ):
     if verbose:
         print(f"[INDEX_READ INPUT] Path: {args.get('path', '')}")
-    rel = str(args.get("path", "")).strip()
-    if not rel:
+    relative_path_arg = str(args.get("path", "")).strip()
+    if not relative_path_arg:
         if verbose:
             print(f"[INDEX_READ ERROR]\n Path must not be empty.")
         raise ValueError("Path must not be empty")
-    path = workspace.path(rel)
+    path = workspace.convert_relative_str_to_path(relative_path_arg)
     if not path.is_file():
         if verbose:
             print(f"[INDEX_READ ERROR]\n Path is not a file: {path}")
         raise ValueError("Path is not a file")
 
-    rel_key = str(path.relative_to(workspace.root))
-    tool_result = index_read_report(ledger, path, rel_key)
+    relative_path = path.relative_to(workspace.root.resolve())
+    tool_result = index_read_report(ledger, path, relative_path)
 
     if verbose:
         print(f"[INDEX_READ RESULT]\n{tool_result}\n")

@@ -1,4 +1,2 @@
-Parser Optimizations
-
-parser.py
-- Check size + mtime for `is_stale` check before read bytes and hashing
+Parser
+- Double Check sqlite file name, is it correctly tying to workspace?

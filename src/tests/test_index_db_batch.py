@@ -55,7 +55,7 @@ def test_apply_index_batch_writes_files_and_optional_git():
             assert db.execute("SELECT COUNT(*) AS c FROM file_meta")[0]["c"] == 2
             assert db.execute("SELECT COUNT(*) AS c FROM symbols")[0]["c"] == 2
             assert db.execute("SELECT COUNT(*) AS c FROM git_info")[0]["c"] == 1
-            row = db.get_git_info("a.py")
+            row = db.get_git_info(Path("a.py"))
             assert row is not None
             assert row["last_commit_hash"] == "deadbeef"
         finally:
@@ -122,7 +122,7 @@ def test_remove_files_batch_clears_multiple_paths():
                     ),
                 ]
             )
-            db.remove_files_batch(["x.py", "y.py"])
+            db.remove_files_batch([Path("x.py"), Path("y.py")])
             assert db.execute("SELECT COUNT(*) AS c FROM file_meta")[0]["c"] == 0
             assert db.execute("SELECT COUNT(*) AS c FROM symbols")[0]["c"] == 0
             assert db.execute("SELECT COUNT(*) AS c FROM calls")[0]["c"] == 0

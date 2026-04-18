@@ -27,7 +27,9 @@ list_files_parameters: dict[str, Any] = {
 def tool_list_files(workspace, args, verbose: bool = False):
     if verbose:
         print(f"[LIST_FILES INPUT] Path: {args.get('path', '.')}")
-    base = workspace.path(args.get("path", "."))
+    base = workspace.convert_relative_str_to_path(
+        str(args.get("path", ".")).strip() or "."
+    )
     if not base.is_dir():
         if verbose:
             print(f"[LIST_FILES ERROR]\n Path is not a directory: {base}")
@@ -48,28 +50,27 @@ def tool_list_files(workspace, args, verbose: bool = False):
             return
         try:
             with os.scandir(directory) as it:
-                entries = sorted(
-                    it,
-                    key=lambda e: (
-                        e.is_file(follow_symlinks=False),
-                        e.name.lower(),
+                paths = sorted(
+                    (Path(e) for e in it),
+                    key=lambda p: (
+                        p.is_file(),
+                        p.name.lower(),
                     ),
                 )
         except OSError:
             return
-        for entry in entries:
+        for child in paths:
             if len(lines) >= _LIST_FILES_MAX_ENTRIES:
                 return
-            if entry.name in ignore:
+            if child.name in ignore:
                 continue
             child_depth = dir_depth + 1
             if child_depth > _LIST_FILES_MAX_DEPTH:
                 continue
-            is_dir = entry.is_dir(follow_symlinks=False)
+            is_dir = child.is_dir()
             kind = "[D]" if is_dir else "[F]"
-            child = Path(entry)
-            rel = child.relative_to(root)
-            lines.append(f"{tree_prefix(child_depth)}{kind} {rel}")
+            relative_path = child.relative_to(root)
+            lines.append(f"{tree_prefix(child_depth)}{kind} {relative_path}")
             if is_dir and child_depth < _LIST_FILES_MAX_DEPTH:
                 walk_dir(child, child_depth)
 

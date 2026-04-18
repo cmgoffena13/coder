@@ -31,7 +31,9 @@ def tool_search(workspace, args, verbose: bool = False):
         if verbose:
             print(f"[SEARCH ERROR]\n Pattern must not be empty")
         raise ValueError("Pattern must not be empty")
-    path = workspace.path(args.get("path", "."))
+    path = workspace.convert_relative_str_to_path(
+        str(args.get("path", ".")).strip() or "."
+    )
 
     if shutil.which("rg"):
         result = subprocess.run(
