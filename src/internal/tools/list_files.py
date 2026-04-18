@@ -18,6 +18,8 @@ list_files_parameters: dict[str, Any] = {
 
 
 def tool_list_files(workspace, args, verbose: bool = False):
+    if verbose:
+        print(f"[LIST_FILES INPUT] Path: {args.get('path', '.')}")
     path = workspace.path(args.get("path", "."))
     if not path.is_dir():
         if verbose:

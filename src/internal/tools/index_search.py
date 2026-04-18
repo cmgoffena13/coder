@@ -23,6 +23,10 @@ index_search_parameters: dict[str, Any] = {
 
 
 def tool_index_search(workspace, args, verbose: bool = False):
+    if verbose:
+        print(
+            f"[INDEX_SEARCH INPUT] Query: {args.get('query', '')}; Limit: {args.get('limit', 15)}"
+        )
     query = str(args.get("query", "")).strip()
     if not query:
         if verbose:

@@ -24,6 +24,10 @@ index_task_memory_parameters: dict[str, Any] = {
 
 
 def tool_index_task_memory(workspace, args, verbose: bool = False):
+    if verbose:
+        print(
+            f"[INDEX_TASK_MEMORY INPUT] Query: {args.get('query', '')}; Threshold: {args.get('threshold', 0.25)}"
+        )
     q = str(args.get("query", "")).strip()
     if not q:
         if verbose:

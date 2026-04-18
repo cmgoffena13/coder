@@ -21,6 +21,10 @@ run_shell_parameters: dict[str, Any] = {
 
 
 def tool_run_shell(workspace, args, verbose: bool = False):
+    if verbose:
+        print(
+            f"[RUN_SHELL INPUT] Command: {args.get('command', '')}; Timeout: {args.get('timeout', 20)}"
+        )
     command = str(args.get("command", "")).strip()
     if not command:
         if verbose:

@@ -19,6 +19,10 @@ write_file_parameters: dict[str, Any] = {
 
 
 def tool_write_file(workspace, args, verbose: bool = False):
+    if verbose:
+        print(
+            f"[WRITE_FILE INPUT] Path: {args.get('path', '')}; Content: {args.get('content', '')}"
+        )
     path = workspace.path(args["path"])
     content = str(args["content"])
     path.parent.mkdir(parents=True, exist_ok=True)

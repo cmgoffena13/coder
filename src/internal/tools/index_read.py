@@ -19,6 +19,8 @@ index_read_parameters: dict[str, Any] = {
 
 
 def tool_index_read(workspace, args, verbose: bool = False):
+    if verbose:
+        print(f"[INDEX_READ INPUT] Path: {args.get('path', '')}")
     rel = str(args.get("path", "")).strip()
     if not rel:
         if verbose:

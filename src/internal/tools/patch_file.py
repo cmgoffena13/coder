@@ -23,6 +23,8 @@ patch_file_parameters: dict[str, Any] = {
 
 
 def tool_patch_file(workspace, args, verbose: bool = False):
+    if verbose:
+        print(f"[PATCH_FILE INPUT] Path: {args.get('path', '')}")
     path = workspace.path(args["path"])
     if not path.is_file():
         if verbose:

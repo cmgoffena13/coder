@@ -29,6 +29,8 @@ def _read_lines(root, rel_file: str, start: int, end: int) -> str:
 
 
 def tool_index_resolve(workspace, args, verbose: bool = False):
+    if verbose:
+        print(f"[INDEX_RESOLVE INPUT] Symbol: {args.get('symbol', '')}")
     name = str(args.get("symbol", "")).strip()
     if not name:
         if verbose:

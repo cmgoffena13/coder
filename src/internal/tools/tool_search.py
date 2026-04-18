@@ -22,6 +22,10 @@ search_parameters: dict[str, Any] = {
 
 
 def tool_search(workspace, args, verbose: bool = False):
+    if verbose:
+        print(
+            f"[SEARCH INPUT] Pattern: {args.get('pattern', '')}; Path: {args.get('path', '.')}"
+        )
     pattern = str(args.get("pattern", "")).strip()
     if not pattern:
         if verbose:
