@@ -15,6 +15,11 @@ install:
 update:
 	uv sync --upgrade --all-extras
 
+publish:
+	@test -n "$(version)" || (echo >&2 "usage: make publish version=v1.2.3"; exit 1)
+	git tag -a "$(version)" -m "Release $(version)"
+	git push origin "$(version)"
+
 compile:
 	uv run -- nuitka src/app.py \
 		--lto=yes \
