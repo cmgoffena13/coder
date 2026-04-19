@@ -84,18 +84,17 @@ jobs:
             --noinclude-data-files=src/tests/* ^
             --output-dir=dist/
 
-      # Nuitka names the folder from the main script (app.py → app.dist), not --output-filename (coder).
       - name: Zip artifact (Linux/macOS)
         if: matrix.os != 'windows-latest'
         run: |
-          chmod +x dist/app.dist/coder
-          cd dist && zip -r ${{ matrix.output_name }}.zip app.dist
+          chmod +x dist/coder
+          cd dist && zip -r ${{ matrix.output_name }}.zip coder coder.sh
 
       - name: Zip artifact (Windows)
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          Compress-Archive -Path dist/app.dist -DestinationPath dist/${{ matrix.output_name }}.zip -Force
+          Compress-Archive -Path dist/coder.exe -DestinationPath dist/${{ matrix.output_name }}.zip -Force
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
