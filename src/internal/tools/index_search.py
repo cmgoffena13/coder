@@ -51,6 +51,7 @@ def add_index_search_tool(workspace, verbose: bool = False) -> TOOL:
         description=(
             "Search the codebase by keywords using FTS5 full-text search. "
             "Matches symbol names, signatures, file paths, and call-site context lines. "
+            "Use this tool INSTEAD OF list_files. Use index_resolve to get detailed information about symbols."
             "Input: natural language query (e.g. 'auth token 401 unauthorized')."
         ),
         parameters=index_search_parameters,
