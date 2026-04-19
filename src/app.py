@@ -50,10 +50,10 @@ def main():
         return 0
 
     workspace = WorkspaceContext.build(args.cwd)
+    refresh_code_index(workspace, args.verbose)
     agent = CoderAgent(
         workspace=workspace, approval_policy=args.approval, verbose=args.verbose
     )
-    refresh_code_index(workspace, args.verbose)
     session_path = new_chat_session_path(args.cwd)
     memory = MEMORY()
     if args.latest:
